@@ -1,0 +1,11 @@
+.env*
+*.sqlite3
+*.sqlite3-*
+node_modules/
+venv/
+__pycache__/
+*.safetensors
+*.joblib
+*.csv
+*.log
+*.pkl

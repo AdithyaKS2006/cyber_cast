@@ -1,0 +1,63 @@
+version: '3.9'
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: crimecast
+      POSTGRES_USER: crimecast
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crimecast"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    command: daphne -b 0.0.0.0 -p 8000 crimecast.asgi:application
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      - redis
+
+  celery:
+    build: .
+    command: celery -A crimecast worker -l info
+    volumes:
+      - .:/app
+    env_file: .env
+    depends_on:
+      - redis
+
+  celery-beat:
+    build: .
+    command: celery -A crimecast beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    env_file: .env
+    depends_on:
+      - redis
+
+  flower:
+    build: .
+    command: celery -A crimecast flower
+    ports:
+      - "5555:5555"
+    env_file: .env
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:

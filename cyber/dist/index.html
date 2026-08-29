@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Primary meta -->
+    <title>CrimeCast — Predictive Cybercrime Intelligence</title>
+    <meta name="description"
+      content="CrimeCast predicts where stolen money goes before criminals cash out. AI-powered cybercrime intelligence for Indian Law Enforcement — powered by calibrated LightGBM on NCRP data." />
+    <meta name="keywords"
+      content="CrimeCast, cybercrime, fraud prediction, Indian police, I4C, NCRP, ML, cash-out prediction, UPI fraud" />
+    <meta name="author" content="CrimeCast Intelligence Division" />
+    <meta name="robots" content="noindex, nofollow" /> <!-- Internal LEA tool -->
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:title"       content="CrimeCast — Predictive Cybercrime Intelligence" />
+    <meta property="og:description" content="Predict where stolen money goes before criminals cash out." />
+    <meta property="og:image"       content="/og-image.png" />
+    <meta property="og:url"         content="https://crimecast.gov.in" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="CrimeCast" />
+    <meta name="twitter:description" content="AI-Powered Cybercrime Intelligence for Indian Law Enforcement" />
+
+    <!-- Inline SVG Favicon (orange shield with CC) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,
+      %3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E
+        %3Cdefs%3E
+          %3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E
+            %3Cstop offset='0%25' stop-color='%23f97316'/%3E
+            %3Cstop offset='100%25' stop-color='%23ef4444'/%3E
+          %3C/linearGradient%3E
+        %3C/defs%3E
+        %3Cpath d='M16 2 L28 7 L28 16 C28 23 22 29 16 31 C10 29 4 23 4 16 L4 7 Z'
+              fill='url(%23g)'/%3E
+        %3Ctext x='16' y='22' text-anchor='middle' fill='white'
+              font-size='13' font-weight='900' font-family='Inter,sans-serif'%3ECC%3C/text%3E
+      %3C/svg%3E" />
+
+    <!-- Apple touch icon fallback -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,
+      %3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E
+        %3Crect width='32' height='32' rx='8' fill='%23f97316'/%3E
+        %3Ctext x='16' y='22' text-anchor='middle' fill='white'
+              font-size='14' font-weight='900' font-family='sans-serif'%3ECC%3C/text%3E
+      %3C/svg%3E" />
+
+    <!-- PWA -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CrimeCast" />
+
+    <!-- Preconnect fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      /* Critical above-fold CSS — prevents FOUC */
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #000; color: #e4e4e7; }
+      body { font-family: 'Inter', system-ui, sans-serif; overflow-x: hidden;
+             -webkit-font-smoothing: antialiased; }
+      #root { min-height: 100dvh; }
+
+      /* Initial loading state shown before React mounts */
+      #app-loader {
+        position: fixed; inset: 0; background: #000;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 16px; z-index: 9999;
+        transition: opacity 0.4s ease;
+      }
+      #app-loader.hidden { opacity: 0; pointer-events: none; }
+      #app-loader-shield {
+        width: 56px; height: 56px;
+        background: linear-gradient(135deg, #f97316, #ef4444);
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 900; color: #fff; font-size: 18px; letter-spacing: -1px;
+        animation: loaderPulse 1.6s ease-in-out infinite;
+      }
+      #app-loader p {
+        font-size: 10px; font-weight: 700; letter-spacing: 4px;
+        text-transform: uppercase; color: #52525b;
+      }
+      @keyframes loaderPulse {
+        0%,100% { box-shadow: 0 0 0 0 rgba(249,115,22,0); transform: scale(1); }
+        50%      { box-shadow: 0 0 0 12px rgba(249,115,22,0.15); transform: scale(1.05); }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-B5N2lBWg.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/react-DtrESx-C.js">
+    <link rel="modulepreload" crossorigin href="/assets/jsx-runtime-CAUFL_QV.js">
+    <link rel="modulepreload" crossorigin href="/assets/proxy-CZvFwZ_C.js">
+    <link rel="modulepreload" crossorigin href="/assets/dist-BSyhGoSj.js">
+    <link rel="modulepreload" crossorigin href="/assets/loader-circle-Ct_lAKN7.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BGj5GeeX.css">
+  </head>
+
+  <body>
+    <!-- Pre-React loader (hidden once React mounts) -->
+    <div id="app-loader">
+      <div id="app-loader-shield">CC</div>
+      <p>CrimeCast</p>
+    </div>
+
+    <div id="root"></div>
+
+    <script>
+      // Hide loader once React has rendered
+      document.addEventListener('DOMContentLoaded', () => {
+        const observer = new MutationObserver(() => {
+          if (document.querySelector('#root > *')) {
+            const loader = document.getElementById('app-loader');
+            if (loader) {
+              loader.classList.add('hidden');
+              setTimeout(() => loader.remove(), 500);
+            }
+            observer.disconnect();
+          }
+        });
+        observer.observe(document.getElementById('root'), { childList: true });
+      });
+    </script>
+  </body>
+</html>

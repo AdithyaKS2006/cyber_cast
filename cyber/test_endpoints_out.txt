@@ -1,0 +1,127 @@
+.....F........EEF.................FFF..............                      [100%]
+==================================== ERRORS ====================================
+__________ ERROR at setup of TestIncidentEndpoints.test_incident_list __________
+../../cyber/venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:924: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+tests/conftest.py:166: in sample_incident
+    from apps.incidents.models import Incident
+E   ModuleNotFoundError: No module named 'apps.incidents'
+---------------------------- Captured stderr setup -----------------------------
+INFO 2026-08-20 17:29:10,954 trace 40095 140367191584896 Task apps.core.tasks.send_system_email[75d080dc-ed21-4690-a54e-170cce381513] succeeded in 0.0018366939984844066s: None
+------------------------------ Captured log setup ------------------------------
+INFO     celery.app.trace:trace.py:131 Task apps.core.tasks.send_system_email[75d080dc-ed21-4690-a54e-170cce381513] succeeded in 0.0018366939984844066s: None
+_________ ERROR at setup of TestIncidentEndpoints.test_incident_detail _________
+../../cyber/venv/lib/python3.12/site-packages/pytest_asyncio/plugin.py:924: in pytest_fixture_setup
+    return (yield)
+            ^^^^^
+tests/conftest.py:166: in sample_incident
+    from apps.incidents.models import Incident
+E   ModuleNotFoundError: No module named 'apps.incidents'
+---------------------------- Captured stderr setup -----------------------------
+INFO 2026-08-20 17:29:12,668 trace 40095 140367191584896 Task apps.core.tasks.send_system_email[b3edcbb3-aa95-4999-89bb-c131f803632b] succeeded in 0.002510789001462399s: None
+------------------------------ Captured log setup ------------------------------
+INFO     celery.app.trace:trace.py:131 Task apps.core.tasks.send_system_email[b3edcbb3-aa95-4999-89bb-c131f803632b] succeeded in 0.002510789001462399s: None
+=================================== FAILURES ===================================
+___________ TestThreatDetectionEndpoints.test_packet_upload_no_auth ____________
+tests/test_api_endpoints.py:35: in test_packet_upload_no_auth
+    assert response.status_code == 401
+E   assert 404 == 401
+E    +  where 404 = <JsonResponse status_code=404, "application/json">.status_code
+----------------------------- Captured stderr call -----------------------------
+WARNING 2026-08-20 17:28:50,490 log 40095 140367191584896 Not Found: /api/v1/analyze/packet/
+------------------------------ Captured log call -------------------------------
+WARNING  django.request:log.py:241 Not Found: /api/v1/analyze/packet/
+___________________ TestIncidentEndpoints.test_playbook_list ___________________
+tests/test_api_endpoints.py:91: in test_playbook_list
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <JsonResponse status_code=404, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+INFO 2026-08-20 17:29:14,830 trace 40095 140367191584896 Task apps.core.tasks.send_system_email[259cbd3c-3cec-4964-a7cc-b7de2d92ad71] succeeded in 0.002084290001221234s: None
+------------------------------ Captured log setup ------------------------------
+INFO     celery.app.trace:trace.py:131 Task apps.core.tasks.send_system_email[259cbd3c-3cec-4964-a7cc-b7de2d92ad71] succeeded in 0.002084290001221234s: None
+----------------------------- Captured stderr call -----------------------------
+WARNING 2026-08-20 17:29:14,837 log 40095 140367191584896 Not Found: /api/v1/incidents/playbooks/
+------------------------------ Captured log call -------------------------------
+WARNING  django.request:log.py:241 Not Found: /api/v1/incidents/playbooks/
+_______________________ TestSandboxEndpoints.test_submit _______________________
+tests/test_api_endpoints.py:183: in test_submit
+    assert response.status_code == 202
+E   assert 404 == 202
+E    +  where 404 = <JsonResponse status_code=404, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+INFO 2026-08-20 17:29:45,522 trace 40095 140367191584896 Task apps.core.tasks.send_system_email[de675737-f6c2-452d-8e7f-97c21fdffe20] succeeded in 0.0021941489994787844s: None
+------------------------------ Captured log setup ------------------------------
+INFO     celery.app.trace:trace.py:131 Task apps.core.tasks.send_system_email[de675737-f6c2-452d-8e7f-97c21fdffe20] succeeded in 0.0021941489994787844s: None
+----------------------------- Captured stderr call -----------------------------
+WARNING 2026-08-20 17:29:45,561 log 40095 140367191584896 Not Found: /api/v1/sandbox/submit/
+------------------------------ Captured log call -------------------------------
+WARNING  django.request:log.py:241 Not Found: /api/v1/sandbox/submit/
+______________________ TestSandboxEndpoints.test_history _______________________
+tests/test_api_endpoints.py:187: in test_history
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <JsonResponse status_code=404, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+INFO 2026-08-20 17:29:47,242 trace 40095 140367191584896 Task apps.core.tasks.send_system_email[7b4309c3-0304-4793-9a16-f5dd36b6f9bd] succeeded in 0.0016063990005932283s: None
+------------------------------ Captured log setup ------------------------------
+INFO     celery.app.trace:trace.py:131 Task apps.core.tasks.send_system_email[7b4309c3-0304-4793-9a16-f5dd36b6f9bd] succeeded in 0.0016063990005932283s: None
+----------------------------- Captured stderr call -----------------------------
+WARNING 2026-08-20 17:29:47,247 log 40095 140367191584896 Not Found: /api/v1/sandbox/history/
+------------------------------ Captured log call -------------------------------
+WARNING  django.request:log.py:241 Not Found: /api/v1/sandbox/history/
+___________________ TestSandboxEndpoints.test_classify_hash ____________________
+tests/test_api_endpoints.py:193: in test_classify_hash
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <JsonResponse status_code=404, "application/json">.status_code
+---------------------------- Captured stderr setup -----------------------------
+INFO 2026-08-20 17:29:49,309 trace 40095 140367191584896 Task apps.core.tasks.send_system_email[17b96055-5b07-4b99-bb8b-6f45647e8ca3] succeeded in 0.0031540089985355735s: None
+------------------------------ Captured log setup ------------------------------
+INFO     celery.app.trace:trace.py:131 Task apps.core.tasks.send_system_email[17b96055-5b07-4b99-bb8b-6f45647e8ca3] succeeded in 0.0031540089985355735s: None
+----------------------------- Captured stderr call -----------------------------
+WARNING 2026-08-20 17:29:49,352 log 40095 140367191584896 Not Found: /api/v1/sandbox/classify/
+------------------------------ Captured log call -------------------------------
+WARNING  django.request:log.py:241 Not Found: /api/v1/sandbox/classify/
+=============================== warnings summary ===============================
+../../cyber/venv/lib/python3.12/site-packages/django/conf/__init__.py:289
+  /home/adithya-k-s/PROJECTS/cyber/venv/lib/python3.12/site-packages/django/conf/__init__.py:289: RemovedInDjango51Warning: The STATICFILES_STORAGE setting is deprecated. Use STORAGES instead.
+    warnings.warn(STATICFILES_STORAGE_DEPRECATED_MSG, RemovedInDjango51Warning)
+
+../../cyber/venv/lib/python3.12/site-packages/pythonjsonlogger/__init__.py:24
+../../cyber/venv/lib/python3.12/site-packages/pythonjsonlogger/__init__.py:24
+  /home/adithya-k-s/PROJECTS/cyber/venv/lib/python3.12/site-packages/pythonjsonlogger/__init__.py:24: DeprecationWarning: pythonjsonlogger.jsonlogger has been moved to pythonjsonlogger.json
+    warnings.warn(
+
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_threat_feed
+  /home/adithya-k-s/PROJECTS/cyber/venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+    warnings.warn(  # deprecated in 14.0 - 2024-11-09
+
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_single
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_single
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_single
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_single
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_bulk
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_bulk
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_bulk
+  /home/adithya-k-s/PROJECTS/cyber/venv/lib/python3.12/site-packages/joblib/_utils.py:38: DeprecationWarning: ast.Num is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    if isinstance(node, ast.Num):  # <number>
+
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_single
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_single
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_bulk
+tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_ml_classify_bulk
+  /home/adithya-k-s/PROJECTS/cyber/venv/lib/python3.12/site-packages/joblib/_utils.py:39: DeprecationWarning: Attribute n is deprecated and will be removed in Python 3.14; use value instead
+    return node.n
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_api_endpoints.py::TestThreatDetectionEndpoints::test_packet_upload_no_auth
+FAILED tests/test_api_endpoints.py::TestIncidentEndpoints::test_playbook_list
+FAILED tests/test_api_endpoints.py::TestSandboxEndpoints::test_submit - asser...
+FAILED tests/test_api_endpoints.py::TestSandboxEndpoints::test_history - asse...
+FAILED tests/test_api_endpoints.py::TestSandboxEndpoints::test_classify_hash
+ERROR tests/test_api_endpoints.py::TestIncidentEndpoints::test_incident_list
+ERROR tests/test_api_endpoints.py::TestIncidentEndpoints::test_incident_detail
+5 failed, 44 passed, 15 warnings, 2 errors in 111.29s (0:01:51)

@@ -1,0 +1,135 @@
+{
+  "dataset_size": 55000,
+  "stated_tolerance_pct": 10.0,
+  "max_observed_error_pct": 6.1,
+  "overall_passed": true,
+  "victim_echo_bug_fixed": true,
+  "method_calibration": [
+    {
+      "method": "UPI",
+      "real_target_pct": 45.0,
+      "synthetic_pct": 44.98,
+      "error_pct": -0.04,
+      "passed": true
+    },
+    {
+      "method": "NETBANKING",
+      "real_target_pct": 25.0,
+      "synthetic_pct": 24.92,
+      "error_pct": -0.33,
+      "passed": true
+    },
+    {
+      "method": "CARD",
+      "real_target_pct": 18.0,
+      "synthetic_pct": 18.03,
+      "error_pct": 0.19,
+      "passed": true
+    },
+    {
+      "method": "OTHER",
+      "real_target_pct": 8.0,
+      "synthetic_pct": 8.03,
+      "error_pct": 0.43,
+      "passed": true
+    },
+    {
+      "method": "CRYPTO",
+      "real_target_pct": 4.0,
+      "synthetic_pct": 4.03,
+      "error_pct": 0.73,
+      "passed": true
+    }
+  ],
+  "hotspot_calibration": [
+    {
+      "district": "Jamtara",
+      "state": "Jharkhand",
+      "real_ncrb_target_pct": 10.71,
+      "synthetic_pct": 10.97,
+      "error_pct": 2.36,
+      "passed": true
+    },
+    {
+      "district": "Nuh",
+      "state": "Haryana",
+      "real_ncrb_target_pct": 11.31,
+      "synthetic_pct": 10.68,
+      "error_pct": -5.57,
+      "passed": true
+    },
+    {
+      "district": "Bharatpur",
+      "state": "Rajasthan",
+      "real_ncrb_target_pct": 10.12,
+      "synthetic_pct": 9.5,
+      "error_pct": -6.1,
+      "passed": true
+    },
+    {
+      "district": "Deoghar",
+      "state": "Jharkhand",
+      "real_ncrb_target_pct": 9.52,
+      "synthetic_pct": 9.81,
+      "error_pct": 2.98,
+      "passed": true
+    },
+    {
+      "district": "Giridih",
+      "state": "Jharkhand",
+      "real_ncrb_target_pct": 9.52,
+      "synthetic_pct": 9.32,
+      "error_pct": -2.19,
+      "passed": true
+    },
+    {
+      "district": "Alwar",
+      "state": "Rajasthan",
+      "real_ncrb_target_pct": 9.52,
+      "synthetic_pct": 9.91,
+      "error_pct": 4.05,
+      "passed": true
+    },
+    {
+      "district": "Mathura",
+      "state": "Uttar Pradesh",
+      "real_ncrb_target_pct": 8.93,
+      "synthetic_pct": 8.88,
+      "error_pct": -0.54,
+      "passed": true
+    },
+    {
+      "district": "New Delhi",
+      "state": "Delhi",
+      "real_ncrb_target_pct": 8.33,
+      "synthetic_pct": 8.66,
+      "error_pct": 3.91,
+      "passed": true
+    },
+    {
+      "district": "Mumbai",
+      "state": "Maharashtra",
+      "real_ncrb_target_pct": 7.74,
+      "synthetic_pct": 7.77,
+      "error_pct": 0.42,
+      "passed": true
+    },
+    {
+      "district": "Bengaluru",
+      "state": "Karnataka",
+      "real_ncrb_target_pct": 7.14,
+      "synthetic_pct": 6.94,
+      "error_pct": -2.87,
+      "passed": true
+    },
+    {
+      "district": "Hyderabad",
+      "state": "Telangana",
+      "real_ncrb_target_pct": 7.14,
+      "synthetic_pct": 7.57,
+      "error_pct": 6.0,
+      "passed": true
+    }
+  ],
+  "timestamp": "2026-08-27T17:09:14.618658"
+}

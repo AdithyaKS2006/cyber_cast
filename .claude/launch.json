@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "crimecast-web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd cyber && npm run dev"],
+      "port": 3000
+    }
+  ]
+}

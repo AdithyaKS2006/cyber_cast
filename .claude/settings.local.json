@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(timeout 90 venv/bin/python manage.py makemigrations --check --dry-run)",
+      "Bash(timeout 90 venv/bin/python manage.py showmigrations predictions)",
+      "Bash(timeout 90 venv/bin/python -c ' *)",
+      "Bash(awk '{print $6, $7}')",
+      "Bash(nohup venv/bin/python manage.py runserver 8000 --noreload)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -m 10 http://127.0.0.1:8000/api/v1/health/)",
+      "Bash(curl -s -m 10 -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://127.0.0.1:8000/api/v1/predictions/data/model-metrics/)",
+      "Bash(venv/bin/python -c ' *)",
+      "Bash(pkill -f \"manage.py runserver\")",
+      "Bash(rm -f /tmp/cc_cookies.txt)",
+      "Bash(curl -s -m 10 -c /tmp/cc_cookies.txt -X POST http://127.0.0.1:8000/api/v1/auth/login/ -H 'Content-Type: application/json' -d '{\"email\":\"admin@crimecast.io\",\"password\":\"demo1234\"}' -o /tmp/cc_login.json -w 'HTTP %{http_code}\\\\n')",
+      "Bash(curl -s -m 10 -b /tmp/cc_cookies.txt http://127.0.0.1:8000/api/v1/predictions/data/model-metrics/ -w \"\\\\nHTTP %{http_code}\\\\n\")",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -m 15 -b /tmp/cc_cookies.txt -X POST http://127.0.0.1:8000/api/v1/predictions/__TRACKED_VAR__/dispatch/ -H 'Content-Type: application/json' -d '{}' -w '\\\\nHTTP %{http_code}\\\\n')",
+      "Bash(curl -s -m 30 -b /tmp/cc_cookies.txt -X POST http://127.0.0.1:8000/api/v1/predictions/__TRACKED_VAR__/dispatch/ -H 'Content-Type: application/json' -d '{\"analyst_approved\": true}' -w '\\\\nHTTP %{http_code}\\\\n')",
+      "Bash(venv/bin/python manage.py shell -c ' *)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -o /dev/null -w \"backend /api/v1/ health: %{http_code}\\\\n\" http://127.0.0.1:8000/api/v1/)",
+      "Bash(curl -s -o /dev/null -w \"model-metrics \\(no auth, expect 401/403\\): %{http_code}\\\\n\" http://127.0.0.1:8000/api/v1/predictions/data/model-metrics/)",
+      "Bash(grep -v \"register_model\\\\|RuntimeWarning\\\\|warnings.warn\\\\|^\\\\s*$\")",
+      "Read(//usr/bin/**)",
+      "Bash(venv/bin/python -c \"print\\('venv ok'\\)\")",
+      "Bash(venv/bin/python manage.py check)",
+      "Bash(venv/bin/python -c \"import requests; print\\('requests', requests.__version__\\)\")",
+      "Bash(ps -o pid,ppid,cmd -C python)",
+      "Bash(python3 -)",
+      "Bash(./venv/bin/python -)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(timeout 300 venv/bin/python -m pytest apps/predictions/tests.py -p no:warnings -rN)",
+      "Bash(./venv/bin/python -c \"import sys; sys.path.insert\\(0,'.'\\); import os; os.environ.setdefault\\('DJANGO_SETTINGS_MODULE','crimecast.settings'\\); import django; django.setup\\(\\); from apps.ml_engine.zones import FEATURE_COLS; print\\('num features:', len\\(FEATURE_COLS\\)\\)\")",
+      "WebFetch(domain:github.com)",
+      "Bash(grep -nA15 \"class PackageDispatchView\" apps/predictions/views.py)",
+      "Bash(grep -nE \"Math.random|const \\(ZONES|THREATS|NODES|DATA|markers|SCORES|attacks\\)|= \\\\[$|latlng|lat:|coordinates\" components/ai/ThreatScoringEngine.jsx components/analytics/ThreatMap.jsx)"
+    ]
+  }
+}

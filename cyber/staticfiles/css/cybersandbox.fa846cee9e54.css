@@ -1,0 +1,89 @@
+/* Complete CSS for the Django app */
+
+/* Grid background */
+.grid-bg {
+  background-image: linear-gradient(to right, #10b98108 1px, transparent 1px),
+                    linear-gradient(to bottom, #10b98108 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #064e3b; border-radius: 10px; }
+
+/* LIGHT MODE overrides */
+.light-mode { --bg: #f5f7fa; --surface: #ffffff; --surface2: #e8edf2; --text: #111827; --muted: #6b7280; }
+.light-mode body,
+.light-mode .bg-black { background-color: var(--bg) !important; }
+.light-mode .bg-zinc-950 { background-color: var(--surface) !important; }
+.light-mode .bg-zinc-900 { background-color: var(--surface2) !important; }
+.light-mode .text-zinc-300,
+.light-mode .text-zinc-500 { color: var(--muted) !important; }
+.light-mode .text-white { color: var(--text) !important; }
+.light-mode .border-emerald-900\/20 { border-color: #d1fae5 !important; }
+.light-mode .text-emerald-900 { color: #047857 !important; }
+.light-mode .bg-zinc-900\/40 { background-color: #f3f4f6 !important; }
+
+/* Animations */
+@keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+.animate-marquee { display: flex; width: fit-content; animation: marquee 30s linear infinite; }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px #10b981; }
+  50% { box-shadow: 0 0 12px #10b981, 0 0 24px #10b981; }
+}
+.glow-pulse { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* Page transition */
+.page-fade-in { animation: fadeIn 0.15s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Kanban drag */
+.kanban-dragging { opacity: 0.5; border: 2px dashed #10b981 !important; }
+.kanban-drop-target { border: 2px dashed #10b981 !important; background: #10b98110 !important; }
+
+/* Notification panel */
+#notif-panel { transition: transform 0.3s ease-in-out; }
+
+/* Severity heatmap */
+.heatmap-cell { transition: transform 0.1s; }
+.heatmap-cell:hover { transform: scale(1.3); z-index: 10; position: relative; }
+
+/* Mobile */
+@media (max-width: 768px) {
+  #sidebar { display: none !important; }
+  .sidebar-label { display: none !important; }
+}
+
+/* Chart.js tooltips */
+.chartjs-tooltip { background: #000 !important; border: 1px solid #064e3b !important; border-radius: 4px !important; font-family: 'JetBrains Mono', monospace !important; font-size: 10px !important; }
+
+/* Triage sidebar */
+.triage-sidebar { transition: width 0.2s ease; }
+.triage-sidebar.collapsed { width: 0; overflow: hidden; padding: 0; }
+
+/* SLA timer */
+.sla-critical { color: #ef4444; animation: pulse 1s infinite; }
+.sla-warning { color: #f59e0b; }
+.sla-ok { color: #10b981; }
+
+/* Code blocks */
+.code-block { background: #09090b; border: 1px solid #064e3b; border-radius: 8px; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #10b981; position: relative; overflow-x: auto; white-space: pre; }
+.code-block .copy-btn { position: absolute; top: 8px; right: 8px; background: #064e3b; color: #10b981; border: none; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; font-family: monospace; font-weight: bold; text-transform: uppercase; }
+
+/* DataTable */
+.data-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+.data-table th { font-size: 9px; font-weight: 900; text-transform: uppercase; color: #14532d; padding: 4px 16px; cursor: pointer; }
+.data-table th:hover { color: #10b981; }
+.data-table th.sorted-asc::after { content: ' ↑'; }
+.data-table th.sorted-desc::after { content: ' ↓'; }
+.data-table td { padding: 12px 16px; background: #18181b66; }
+.data-table tr:hover td { background: #10b98108; }
+.data-table tr td:first-child { border-radius: 8px 0 0 8px; }
+.data-table tr td:last-child { border-radius: 0 8px 8px 0; }
+
+/* ZK Proof QR mock */
+.qr-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; width: 120px; height: 120px; }
+.qr-cell { background: #27272a; }
+.qr-cell.filled { background: #10b981; }

@@ -1,0 +1,5 @@
+web: daphne -b 0.0.0.0 -p 8000 crimecast.asgi:application
+worker-high: celery -A crimecast worker -Q high_priority -c 4 -l info
+worker-medium: celery -A crimecast worker -Q medium_priority -c 2 -l info
+worker-low: celery -A crimecast worker -Q low_priority -c 1 -l info
+worker-beat: celery -A crimecast beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler

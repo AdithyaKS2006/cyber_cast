@@ -1,0 +1,71 @@
+{
+  "dataset_name": "fraud_data_clean.csv",
+  "macro_calibration_applied": "Option B (NCRB + RBI/NPCI Macro Telemetry)",
+  "sample_count": 55000,
+  "split_strategy": "Temporal 80/20 Held-Out Test Split",
+  "top1_accuracy": 52.15,
+  "top3_accuracy": 81.17,
+  "top5_accuracy": 92.36,
+  "macro_precision": 0.4945,
+  "macro_recall": 0.4554,
+  "macro_f1": 0.451,
+  "log_loss": 1.3047,
+  "calibration_method": "Sigmoid (CalibratedClassifierCV)",
+  "num_features": 38,
+  "num_signal_features": 7,
+  "num_exploratory_features": 31,
+  "num_classes": 40,
+  "headline_framing": "Shrinks 700-district search space to ranked shortlist of 5",
+  "honest_evaluation_verified": true,
+  "worst_performing_zones": [
+    {
+      "zone": "Nashik",
+      "f1": 0.02127659574468085,
+      "precision": 0.4,
+      "recall": 0.01092896174863388,
+      "support": 183.0
+    },
+    {
+      "zone": "Mathura",
+      "f1": 0.034934497816593885,
+      "precision": 0.1,
+      "recall": 0.021164021164021163,
+      "support": 189.0
+    },
+    {
+      "zone": "Mumbai",
+      "f1": 0.04395604395604396,
+      "precision": 0.2222222222222222,
+      "recall": 0.024390243902439025,
+      "support": 164.0
+    }
+  ],
+  "feature_signal_breakdown": {
+    "core_signal_features": [
+      "fraud_method_encoded",
+      "victim_state_encoded",
+      "victim_district_encoded",
+      "beneficiary_bank_code",
+      "mule_account_age_days",
+      "hop_count",
+      "distance_from_victim_km"
+    ],
+    "core_signal_importance_share_pct": 46.01,
+    "exploratory_features_count": 31,
+    "exploratory_importance_share_pct": 53.99
+  },
+  "baselines": {
+    "majority_hotspot": {
+      "top1_accuracy": 5.75,
+      "top3_accuracy": 15.49,
+      "top5_accuracy": 24.79
+    },
+    "nearest_district": {
+      "top1_accuracy": 31.4,
+      "top3_accuracy": 61.33,
+      "top5_accuracy": 78.55
+    },
+    "lift_over_majority_top5": "+67.6 pts",
+    "lift_over_nearest_top5": "+13.8 pts"
+  }
+}
