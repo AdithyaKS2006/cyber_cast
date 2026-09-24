@@ -28,7 +28,12 @@ export default async function apiClient(endpoint, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(endpoint, {
+  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+  const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
+    ? endpoint
+    : `${apiBase}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
+  const response = await fetch(url, {
     ...options,
     credentials: 'include',
     headers,
