@@ -39,9 +39,14 @@ THIRD_PARTY_APPS = [
     'django_celery_beat',
     'django_celery_results',
     'django_prometheus',
-    'debug_toolbar',
     'drf_spectacular',
 ]
+
+try:
+    import debug_toolbar
+    THIRD_PARTY_APPS.append('debug_toolbar')
+except ImportError:
+    pass
 
 LOCAL_APPS = [
     'apps.core',
@@ -70,7 +75,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.gzip.GZipMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -78,6 +82,9 @@ MIDDLEWARE = [
     'django_prometheus.middleware.PrometheusAfterMiddleware',
     'apps.core.middleware.WAFMiddleware',
 ]
+
+if 'debug_toolbar' in THIRD_PARTY_APPS:
+    MIDDLEWARE.insert(10, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
 ROOT_URLCONF = 'crimecast.urls'
 
