@@ -14,7 +14,21 @@ function onTokenRefreshed(success) {
   refreshSubscribers = [];
 }
 
+import { handleMockRequest } from './mockBackend';
+
+const isStaticShowcase = () => {
+  if (import.meta.env.VITE_API_URL) return false;
+  if (typeof window === 'undefined') return false;
+  const host = window.location.hostname;
+  return host.includes('github.io') || host.includes('pages.dev') || host.includes('vercel.app') || (host !== 'localhost' && host !== '127.0.0.1');
+};
+
 export default async function apiClient(endpoint, options = {}) {
+  // Intercept requests in-memory on static GitHub Pages to prevent 404/405 network errors
+  if (isStaticShowcase() && endpoint.includes('/api/')) {
+    return handleMockRequest(endpoint, options);
+  }
+
   const headers = { ...options.headers };
 
   // Inject CSRF token for mutation safety (belt-and-suspenders)
