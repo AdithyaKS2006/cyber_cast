@@ -60,6 +60,12 @@ class FraudFeatureExtractor:
         for z in ZONES:
             if z['district'].lower() in district_lower or district_lower in z['district'].lower():
                 return z
+        logger.warning(
+            "District '%s' not registered in 40-zone Northern Cyber Belt Phase 1 pilot grid. "
+            "Falling back to default baseline zone (Jamtara). "
+            "Nationwide 766-district expansion requires live NCRP district-level feed.",
+            district_name
+        )
         return ZONE_BY_ID[1] # fallback
 
     def extract(self, complaint, transaction_chain):
@@ -87,7 +93,8 @@ class FraudFeatureExtractor:
         state_idx = unique_states_list.index(state_name) if state_name in unique_states_list else 0
         f['victim_state_encoded'] = float(state_idx) / max(1.0, float(len(unique_states_list) - 1))
         
-        f['victim_district_encoded'] = float(geo['zone_id']) / 40.0
+        v_lon = float(getattr(complaint, 'victim_lon', None) or geo['lon'])
+        f['victim_district_encoded'] = float(int((v_lon - 68.1) / 29.3 * 700.0) % 700) / 700.0
         f['repeat_victim_flag'] = 1.0 if getattr(complaint, 'is_repeat_victim', False) else 0.0
         
         sent, urg, risk = self._nlp_scores(getattr(complaint, 'narrative_text', '') or '')
@@ -178,12 +185,13 @@ class FraudFeatureExtractor:
         f['remaining_window_estimate'] = max(1.0, 48.0 - f['hours_since_last_transfer'] * 48.0) / 12.0
         f['day_of_month'] = now.day / 31.0
 
-        FESTIVAL_DATES = [
-            datetime.date(2026, 1, 26), datetime.date(2026, 3, 25), datetime.date(2026, 8, 15),
-            datetime.date(2026, 10, 2), datetime.date(2026, 10, 20), datetime.date(2026, 10, 29),
-            datetime.date(2026, 11, 5), datetime.date(2026, 12, 25),
-        ]
         today = now.date() if hasattr(now, 'date') else datetime.date.today()
+        yr = today.year
+        FESTIVAL_DATES = [
+            datetime.date(y, m, d)
+            for y in (yr - 1, yr, yr + 1)
+            for m, d in [(1, 26), (3, 25), (8, 15), (10, 2), (10, 20), (10, 29), (11, 5), (12, 25)]
+        ]
         days_to_nearest = min(abs((today - d).days) for d in FESTIVAL_DATES)
         f['festival_proximity'] = round(max(0.0, 1.0 - days_to_nearest / 30.0), 3)
 

@@ -15,14 +15,22 @@ const CrossJurisdictionRollup = () => {
     apiClient.get('/api/v1/predictions/lea-dispatches/rollup/')
       .then(res => {
         if (isMounted) {
-          setData(res.data);
+          if (res.status >= 200 && res.status < 300 && Array.isArray(res.data)) {
+            setData(res.data);
+          } else {
+            const errStr = typeof res.data === 'object' ? (res.data?.detail || JSON.stringify(res.data)) : String(res.data || 'Error loading rollup data');
+            setError(errStr);
+            setData([]);
+          }
           setLoading(false);
         }
       })
       .catch(err => {
         if (isMounted) {
           console.error("Rollup fetch error:", err);
-          setError("Failed to load cross-jurisdiction data.");
+          const msg = typeof err === 'object' ? (err.message || JSON.stringify(err)) : String(err);
+          setError(msg || "Failed to load cross-jurisdiction data.");
+          setData([]);
           setLoading(false);
         }
       });
@@ -43,10 +51,10 @@ const CrossJurisdictionRollup = () => {
   }
 
   if (error) {
-    return <ErrorState message={error} onRetry={() => window.location.reload()} />;
+    return <ErrorState message={typeof error === 'object' ? JSON.stringify(error) : String(error)} onRetry={() => window.location.reload()} />;
   }
 
-  if (!data || data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <div className="p-8 text-center border border-zinc-800 rounded-xl bg-black/40 backdrop-blur-md">
         <Network className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
@@ -56,19 +64,22 @@ const CrossJurisdictionRollup = () => {
     );
   }
 
-  // Format currency
+  // Format currency safely
   const formatAmount = (num) => {
+    const val = Number(num ?? 0);
+    if (isNaN(val)) return '₹0';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       maximumFractionDigits: 0
-    }).format(num);
+    }).format(val);
   };
 
-  // Format date
+  // Format date safely
   const formatTimeAgo = (dateString) => {
     if (!dateString) return 'Unknown';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Unknown';
     const now = new Date();
     const diffMs = now - date;
     const diffHrs = Math.floor(diffMs / 3600000);
@@ -78,6 +89,14 @@ const CrossJurisdictionRollup = () => {
     if (diffMins > 0) return `${diffMins}m ago`;
     return 'Just now';
   };
+
+  const getLabel = (val, fallback = '—') => {
+    if (val === null || val === undefined) return fallback;
+    if (typeof val === 'object') return val.name || val.title || JSON.stringify(val);
+    return String(val);
+  };
+
+  const totalOps = (data || []).reduce((acc, curr) => acc + (Number(curr?.active_dispatch_count) || 0), 0);
 
   return (
     <div className="space-y-8">
@@ -93,76 +112,88 @@ const CrossJurisdictionRollup = () => {
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 text-indigo-400 rounded-full border border-indigo-500/20">
           <Activity className="w-4 h-4 animate-pulse" />
-          <span className="text-sm font-medium">{data.reduce((acc, curr) => acc + curr.active_dispatch_count, 0)} Active Operations</span>
+          <span className="text-sm font-medium">{totalOps} Active Operations</span>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {data.map((stateData, idx) => (
-          <motion.div
-            key={stateData.state}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="rounded-2xl border border-zinc-800/60 overflow-hidden bg-black/40 backdrop-blur-md"
-          >
-            {/* State Header */}
-            <div className="px-6 py-4 border-b border-zinc-800/60 bg-gradient-to-r from-indigo-900/20 to-transparent flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white">{stateData.state}</h3>
-                <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400">
-                  <span className="flex items-center gap-1">
-                    <ShieldAlert className="w-3 h-3 text-rose-400" />
-                    {stateData.active_dispatch_count} Dispatches
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Activity className="w-3 h-3 text-emerald-400" />
-                    Exposure: {formatAmount(stateData.total_fraud_exposure)}
-                  </span>
-                </div>
-              </div>
-              <div className="text-right flex flex-col items-end">
-                <span className="text-xs text-zinc-500 mb-1">Latest Operation</span>
-                <span className="flex items-center gap-1 text-xs font-medium text-zinc-300 bg-zinc-800/50 px-2 py-1 rounded">
-                  <Clock className="w-3 h-3" />
-                  {formatTimeAgo(stateData.last_dispatched_at)}
-                </span>
-              </div>
-            </div>
+        {data.map((stateData, idx) => {
+          const stateName = getLabel(stateData?.state, 'Unknown State');
+          const sortedDistricts = [...(stateData?.districts || [])].sort(
+            (a, b) => (Number(b?.active_dispatch_count) || 0) - (Number(a?.active_dispatch_count) || 0)
+          );
 
-            {/* Districts List */}
-            <div className="divide-y divide-zinc-800/40">
-              {stateData.districts.sort((a, b) => b.active_dispatch_count - a.active_dispatch_count).map(district => (
-                <div key={district.district} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-800/20 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 font-medium text-sm border border-zinc-700">
-                      {district.district.charAt(0)}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-medium text-zinc-200">{district.district}</h4>
-                      <p className="text-xs text-zinc-500">
-                        Exposure: {formatAmount(district.total_fraud_exposure)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-white">{district.active_dispatch_count}</div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Active</div>
-                    </div>
-                    <button 
-                      className="p-1.5 text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-full transition-colors"
-                      title="View District Operations"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
+          return (
+            <motion.div
+              key={stateName + idx}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className="rounded-2xl border border-zinc-800/60 overflow-hidden bg-black/40 backdrop-blur-md"
+            >
+              {/* State Header */}
+              <div className="px-6 py-4 border-b border-zinc-800/60 bg-gradient-to-r from-indigo-900/20 to-transparent flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">{stateName}</h3>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400">
+                    <span className="flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3 text-rose-400" />
+                      {Number(stateData?.active_dispatch_count || 0)} Dispatches
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Activity className="w-3 h-3 text-emerald-400" />
+                      Exposure: {formatAmount(stateData?.total_fraud_exposure)}
+                    </span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </motion.div>
-        ))}
+                <div className="text-right flex flex-col items-end">
+                  <span className="text-xs text-zinc-500 mb-1">Latest Operation</span>
+                  <span className="flex items-center gap-1 text-xs font-medium text-zinc-300 bg-zinc-800/50 px-2 py-1 rounded">
+                    <Clock className="w-3 h-3" />
+                    {formatTimeAgo(stateData?.last_dispatched_at)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Districts List */}
+              <div className="divide-y divide-zinc-800/40">
+                {sortedDistricts.map((district, dIdx) => {
+                  const distName = getLabel(district?.district, 'District');
+                  const avatarChar = distName.charAt(0).toUpperCase() || 'D';
+
+                  return (
+                    <div key={distName + dIdx} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-800/20 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 font-medium text-sm border border-zinc-700">
+                          {avatarChar}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-zinc-200">{distName}</h4>
+                          <p className="text-xs text-zinc-500">
+                            Exposure: {formatAmount(district?.total_fraud_exposure)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-white">{Number(district?.active_dispatch_count || 0)}</div>
+                          <div className="text-[10px] text-zinc-500 uppercase tracking-wider">Active</div>
+                        </div>
+                        <button 
+                          className="p-1.5 text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-full transition-colors"
+                          title="View District Operations"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );

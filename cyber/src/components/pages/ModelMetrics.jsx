@@ -12,7 +12,11 @@ const ModelMetrics = ({ navigate }) => {
     apiClient('/api/v1/predictions/data/model-metrics/')
       .then(r => r.json())
       .then(data => { setMetrics(data); setLoading(false); })
-      .catch(e => { setError(e.message); setLoading(false); });
+      .catch(e => {
+        const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+        setError(msg || 'Failed to load model metrics');
+        setLoading(false);
+      });
   }, []);
 
   const fade = { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } };
@@ -69,7 +73,7 @@ const ModelMetrics = ({ navigate }) => {
   if (error) return (
     <div className="p-8 text-center text-red-400">
       <p className="text-xl mb-2">⚠️ Could not load model metrics</p>
-      <p className="text-sm text-gray-500">{error}</p>
+      <p className="text-sm text-gray-500">{typeof error === 'object' ? JSON.stringify(error) : String(error)}</p>
     </div>
   );
 

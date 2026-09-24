@@ -180,12 +180,15 @@ const IntelligenceDispatch = ({ prediction, onDispatch, dispatching }) => {
   const isNeedsReview = prediction.outcome === 'NEEDS_REVIEW';
   const pkg = prediction.intelligence_package;
   const [copiedId, setCopiedId] = useState(null);
+  const [bankTab, setBankTab] = useState({});
 
   const handleCopy = (data, id) => {
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
 
   if (pkg) {
     // Render the active package
@@ -203,7 +206,7 @@ const IntelligenceDispatch = ({ prediction, onDispatch, dispatching }) => {
             </div>
             <div>
               <h2 className="text-[12px] font-black text-white uppercase tracking-widest">Intelligence Package</h2>
-              <p className="text-[10px] text-zinc-400">ID: {pkg.id.split('-')[0].toUpperCase()}</p>
+              <p className="text-[10px] text-zinc-400">ID: {String(pkg.id || '').split('-')[0].toUpperCase()}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -254,18 +257,54 @@ const IntelligenceDispatch = ({ prediction, onDispatch, dispatching }) => {
 
         <div className="mt-4 pt-4 border-t border-zinc-800 relative z-10">
           <h3 className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-3">Integration Payloads (I4C/NCRP Compliant)</h3>
-          <div className="max-h-48 overflow-y-auto bg-black/60 p-3 rounded-xl border border-zinc-800 font-mono text-[9px] text-emerald-500/80 space-y-4">
+          <div className="max-h-56 overflow-y-auto bg-black/60 p-3 rounded-xl border border-zinc-800 font-mono text-[9px] text-emerald-500/80 space-y-4">
             {pkg.bank_alerts?.map(a => a.payload && (
-              <div key={a.id} className="relative group">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-orange-400/80 font-bold"># BANK_{a.target_institution.toUpperCase()}_PAYLOAD</span>
-                  <button onClick={() => handleCopy(a.payload, a.id)} className="flex items-center gap-1 text-[8px] text-zinc-400 hover:text-white px-2 py-0.5 rounded bg-zinc-800/80">
-                    {copiedId === a.id ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</> : <><Copy className="w-3 h-3" /> Copy JSON</>}
+              <div key={a.id} className="relative group border border-zinc-800/60 rounded-xl p-2.5 bg-black/40">
+                <div className="flex flex-wrap justify-between items-center gap-2 mb-2 pb-1 border-b border-zinc-800/60">
+                  <div className="flex items-center gap-2">
+                    <span className="text-orange-400/90 font-bold"># BANK_{a.target_institution.toUpperCase()}_PAYLOAD</span>
+                    {a.payload.iso20022_xml && (
+                      <div className="flex items-center bg-zinc-900 rounded-lg p-0.5 border border-zinc-800 text-[8px]">
+                        <button
+                          type="button"
+                          onClick={() => setBankTab(prev => ({ ...prev, [a.id]: 'json' }))}
+                          className={`px-2 py-0.5 rounded font-bold transition-colors ${
+                            (bankTab[a.id] || 'json') === 'json'
+                              ? 'bg-orange-500 text-black'
+                              : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          I4C JSON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBankTab(prev => ({ ...prev, [a.id]: 'xml' }))}
+                          className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 transition-colors ${
+                            bankTab[a.id] === 'xml'
+                              ? 'bg-emerald-500 text-black'
+                              : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          ISO 20022 camt.056 (XML)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleCopy(bankTab[a.id] === 'xml' ? a.payload.iso20022_xml : a.payload, a.id)}
+                    className="flex items-center gap-1 text-[8px] text-zinc-400 hover:text-white px-2 py-0.5 rounded bg-zinc-800/80"
+                  >
+                    {copiedId === a.id ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</> : <><Copy className="w-3 h-3" /> Copy {bankTab[a.id] === 'xml' ? 'XML' : 'JSON'}</>}
                   </button>
                 </div>
-                <pre>{JSON.stringify(a.payload, null, 2)}</pre>
+                <pre className="overflow-x-auto text-[9px] leading-tight">
+                  {bankTab[a.id] === 'xml'
+                    ? a.payload.iso20022_xml
+                    : JSON.stringify(a.payload, null, 2)}
+                </pre>
               </div>
             ))}
+
             {pkg.atm_alerts?.map(a => a.payload && (
               <div key={a.id} className="relative group">
                 <div className="flex justify-between items-center mb-1">
@@ -310,7 +349,7 @@ const IntelligenceDispatch = ({ prediction, onDispatch, dispatching }) => {
                 <div className="-mt-1">
                   <p className="text-[9px] font-mono text-zinc-500">{new Date(log.timestamp).toLocaleTimeString()} · {new Date(log.timestamp).toLocaleDateString()}</p>
                   <p className="text-[11px] font-black text-white uppercase mt-0.5 tracking-tight">{log.action.replace(/_/g, ' ')}</p>
-                  <p className="text-[10px] text-zinc-400 mt-1">{log.details}</p>
+                  <p className="text-[10px] text-zinc-400 mt-1">{typeof log.details === 'object' && log.details !== null ? JSON.stringify(log.details) : String(log.details ?? '')}</p>
                 </div>
               </div>
             ))}
@@ -376,15 +415,23 @@ const PredictionDetail = ({ predictionId, navigate }) => {
   };
 
   const load = async () => {
-    if (!predictionId) return;
+    if (!predictionId || predictionId.startsWith(':') || predictionId === 'undefined' || predictionId === 'null') {
+      setError('Invalid Prediction ID format.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await apiClient(`/api/v1/predictions/${predictionId}/`);
-      if (!res.ok) throw new Error(`Prediction not found (${res.status})`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || errJson.error || `Prediction not found (${res.status})`);
+      }
       const data = await res.json();
       setPrediction(data);
     } catch (e) {
-      setError(e.message || 'Failed to load prediction');
+      const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+      setError(msg || 'Failed to load prediction');
     } finally {
       setLoading(false);
     }
@@ -404,7 +451,8 @@ const PredictionDetail = ({ predictionId, navigate }) => {
       // Reload to get updated state
       await load();
     } catch (e) {
-      setError('Failed to update outcome');
+      const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+      setError(msg || 'Failed to update outcome');
     } finally {
       setUpdating(false);
     }
@@ -418,13 +466,14 @@ const PredictionDetail = ({ predictionId, navigate }) => {
         body: JSON.stringify(isAnalystApproved ? { analyst_approved: true } : {}),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || `Dispatch failed (${res.status})`);
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || err.detail || `Dispatch failed (${res.status})`);
       }
       // If dispatch succeeded, the backend may have changed the outcome to PENDING or generated a package
       await load();
     } catch (e) {
-      setError(e.message);
+      const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+      setError(msg || 'Dispatch failed');
     } finally {
       setUpdating(false);
     }
@@ -439,7 +488,9 @@ const PredictionDetail = ({ predictionId, navigate }) => {
   if (error || !prediction) return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: '#000' }}>
       <AlertTriangle className="w-12 h-12 text-red-400" />
-      <p className="text-white font-bold uppercase text-sm">{error || 'Prediction not found'}</p>
+      <p className="text-white font-bold uppercase text-sm">
+        {typeof error === 'object' ? JSON.stringify(error) : String(error || 'Prediction not found')}
+      </p>
       <button onClick={() => navigate('predictions')}
         className="px-4 py-2 rounded-xl bg-zinc-900 text-zinc-400 text-[10px] font-black uppercase hover:text-white">
         ← Back
@@ -476,7 +527,7 @@ const PredictionDetail = ({ predictionId, navigate }) => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-white uppercase tracking-tight">
-            {prediction.predicted_zone_name}
+            {typeof prediction.predicted_zone_name === 'object' && prediction.predicted_zone_name !== null ? (prediction.predicted_zone_name.name || JSON.stringify(prediction.predicted_zone_name)) : String(prediction.predicted_zone_name ?? '—')}
           </h1>
           <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">
             Rank #{prediction.rank || 1} · {prediction.model_version || 'XGB-CrimeCast-v1'} · {complaint.complaint_number || ''}
@@ -564,7 +615,7 @@ const PredictionDetail = ({ predictionId, navigate }) => {
             <h2 className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Zone Details</h2>
             <div className="space-y-3">
               {[
-                { icon: MapPin,  label: 'Zone',   val: prediction.predicted_zone_name || 'N/A' },
+                { icon: MapPin,  label: 'Zone',   val: typeof prediction.predicted_zone_name === 'object' && prediction.predicted_zone_name !== null ? (prediction.predicted_zone_name.name || JSON.stringify(prediction.predicted_zone_name)) : String(prediction.predicted_zone_name ?? 'N/A') },
                 { icon: MapPin,  label: 'Lat/Lon', val: prediction.predicted_lat != null && prediction.predicted_lon != null ? `${Number(prediction.predicted_lat).toFixed(4)}, ${Number(prediction.predicted_lon).toFixed(4)}` : 'N/A' },
                 { icon: Clock,   label: 'ETA',    val: prediction.eta_hours != null ? `${prediction.eta_hours}h from fraud time` : 'N/A' },
                 { icon: Zap,     label: 'Rank',   val: prediction.rank != null ? `#${prediction.rank} of 5` : 'N/A' },

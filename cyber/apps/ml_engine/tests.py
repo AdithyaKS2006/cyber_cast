@@ -58,3 +58,23 @@ class MLEngineTestCase(TestCase):
         self.assertIn("probability", top_pred)
         self.assertIn("candidate_atms", top_pred)
         self.assertIsInstance(top_pred["candidate_atms"], list)
+
+    def test_singleton_thread_safety(self):
+        from apps.ml_engine.cashout_predictor import get_predictor_instance
+        p1 = get_predictor_instance()
+        p2 = get_predictor_instance()
+        self.assertIs(p1, p2)
+
+    def test_victim_district_encoding_consistency(self):
+        extractor = FraudFeatureExtractor()
+        hops = [self.hop1]
+        features = extractor.extract(self.complaint, hops)
+        names = extractor.get_feature_names()
+        f_dict = dict(zip(names, features))
+        
+        # Test victim_district_encoded is in [0.0, 1.0] range matching formula
+        self.assertIn("victim_district_encoded", f_dict)
+        encoded_val = f_dict["victim_district_encoded"]
+        self.assertGreaterEqual(encoded_val, 0.0)
+        self.assertLessEqual(encoded_val, 1.0)
+

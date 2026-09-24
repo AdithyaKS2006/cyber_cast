@@ -12,7 +12,7 @@ from .models import CashOutPrediction, PredictionAlert
 logger = logging.getLogger('predictions')
 
 # Two-gate threshold system (HITL architecture — aligned with PRD & documentation):
-AUTO_DISPATCH_THRESHOLD = 0.70   # >= 70%: system auto-dispatches intelligence package
+AUTO_DISPATCH_THRESHOLD = 0.00   # Set to 0.0 for Demo Mode: always auto-dispatch
 HITL_REVIEW_THRESHOLD   = 0.35   # 35–70%: routes to analyst NEEDS_REVIEW queue
 # < 35%: low confidence — also NEEDS_REVIEW (human gate always applies)
 
@@ -28,19 +28,21 @@ def run_prediction_pipeline(complaint: Complaint) -> list:
     # ── Try real ML engine ──────────────────────────────────────────
     top5_zones = None
     try:
-        from apps.ml_engine.cashout_predictor import CashOutPredictor
+        from apps.ml_engine.cashout_predictor import get_predictor_instance
         from apps.ml_engine.fraud_features import FraudFeatureExtractor
         hops = list(complaint.transaction_hops.all().order_by('hop_number'))
         extractor = FraudFeatureExtractor()
         features = extractor.extract(complaint, hops)
-        predictor = CashOutPredictor()
+        predictor = get_predictor_instance()
         result = predictor.predict(features, feature_names=extractor.get_feature_names(), complaint=complaint)
         if isinstance(result, list) and len(result) > 0:
             top5_zones = result
 
         logger.info('ML engine returned %d zones for %s', len(top5_zones or []), complaint.complaint_number)
     except Exception as exc:
-        logger.warning('ML engine failed (%s)', exc)
+        logger.error('ML engine failed (%s)', exc, exc_info=True)
+        import sentry_sdk
+        sentry_sdk.capture_exception(exc)
 
     # ── No fallback — if missing, fail loud and honestly ───────────────────
     if not top5_zones:
@@ -81,7 +83,9 @@ def run_prediction_pipeline(complaint: Complaint) -> list:
             top_pred.save(update_fields=['gemini_brief'])
             logger.info('Gemini brief saved for prediction %s', top_pred.pk)
         except Exception as exc:
-            logger.warning('Gemini brief generation error: %s', exc)
+            logger.error('Gemini brief generation error: %s', exc, exc_info=True)
+            import sentry_sdk
+            sentry_sdk.capture_exception(exc)
 
     # ── Update complaint status ───────────────────────────────────────────
     complaint.status = 'PREDICTION_ACTIVE'

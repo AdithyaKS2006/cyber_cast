@@ -5,9 +5,10 @@
  */
 
 class WebSocketConnection {
-  constructor(path, handlers = {}) {
+  constructor(path, handlers = {}, onStatusChange = null) {
     this.path = path;
     this.handlers = handlers;
+    this.onStatusChange = onStatusChange;
     this.ws = null;
     this.retryCount = 0;
     this.maxRetries = 8;
@@ -21,10 +22,7 @@ class WebSocketConnection {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const defaultHost = (window.location.port === '3000' || window.location.port === '5173')
-      ? `${window.location.hostname}:8000`
-      : window.location.host;
-    const host = import.meta.env.VITE_WS_HOST || defaultHost;
+    const host = import.meta.env.VITE_WS_HOST || window.location.host;
     let url = `${protocol}//${host}${this.path}`;
 
     const match = document.cookie.match(new RegExp('(^| )ws_token=([^;]+)'));
@@ -73,7 +71,11 @@ class WebSocketConnection {
   }
 
   _dispatchStatus(status) {
-    window.dispatchEvent(new CustomEvent('ws:status', { detail: { path: this.path, status } }));
+    if (this.onStatusChange) {
+      this.onStatusChange(this.path, status);
+    } else {
+      window.dispatchEvent(new CustomEvent('ws:status', { detail: { path: this.path, status, socketStatus: status } }));
+    }
   }
 
   send(data) {
@@ -102,6 +104,7 @@ class WebSocketConnection {
       this.intentionalClose = true; // prevent further auto-reconnects
       return;
     }
+    this._dispatchStatus('reconnecting');
     const baseWait = Math.min(
       this.baseDelay * Math.pow(2, this.retryCount),
       this.maxDelay
@@ -133,23 +136,66 @@ class WebSocketConnection {
 class WebSocketManager {
   constructor() {
     this.connections = {};
+    this.statuses = {};
+    this._statusDebounceTimer = null;
     this._initialized = false;
+  }
+
+  _handleStatusChange(path, socketStatus) {
+    this.statuses[path] = socketStatus;
+    if (this._statusDebounceTimer) {
+      clearTimeout(this._statusDebounceTimer);
+    }
+    this._statusDebounceTimer = setTimeout(() => {
+      const values = Object.values(this.statuses);
+      const isDashboardConnected = this.statuses['/ws/dashboard/'] === 'connected';
+      let overallStatus = 'disconnected';
+
+      if (isDashboardConnected || values.some((s) => s === 'connected')) {
+        overallStatus = 'connected';
+      } else if (values.some((s) => s === 'reconnecting')) {
+        overallStatus = 'reconnecting';
+      } else if (values.every((s) => s === 'fallback_polling')) {
+        overallStatus = 'fallback_polling';
+      } else {
+        overallStatus = 'disconnected';
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('ws:status', {
+          detail: {
+            path,
+            status: overallStatus,
+            socketStatus,
+            allStatuses: { ...this.statuses },
+          },
+        })
+      );
+    }, 40);
   }
 
   initialize() {
     if (this._initialized) return;
     this._initialized = true;
 
+    const onStatus = (path, status) => this._handleStatusChange(path, status);
+
     this.connections.dashboard = new WebSocketConnection('/ws/dashboard/', {
       onConnect: () => this._log('Dashboard WS connected'),
       onDisconnect: () => this._log('Dashboard WS disconnected'),
       onMessage: (data) => this._handleDashboard(data),
-    });
+    }, onStatus);
 
     this.connections.notifications = new WebSocketConnection('/ws/notifications/', {
       onConnect: () => this._log('Notifications WS connected'),
       onMessage: (data) => this._handleNotification(data),
-    });
+    }, onStatus);
+
+    this.connections.freezeOps = new WebSocketConnection('/ws/freeze-ops/', {
+      onConnect: () => this._log('Freeze Ops WS connected'),
+      onDisconnect: () => this._log('Freeze Ops WS disconnected'),
+      onMessage: (data) => this._handleFreezeOps(data),
+    }, onStatus);
 
     Object.values(this.connections).forEach((conn) => conn.connect());
   }
@@ -159,16 +205,15 @@ class WebSocketManager {
   disconnectAll() {
     Object.values(this.connections).forEach((conn) => conn.close());
     this.connections = {};
+    this.statuses = {};
     this._initialized = false;
   }
   
   reconnectAll() {
     Object.values(this.connections).forEach((conn) => {
-      if (conn.retryCount < conn.maxRetries) {
-        conn.intentionalClose = false;
-        conn.retryCount = 0;
-        conn.connect();
-      }
+      conn.intentionalClose = false;
+      conn.retryCount = 0;
+      conn.connect();
     });
   }
 
@@ -179,6 +224,11 @@ class WebSocketManager {
 
   _handleNotification(data) {
     const event = new CustomEvent('ws:notification', { detail: data });
+    window.dispatchEvent(event);
+  }
+
+  _handleFreezeOps(data) {
+    const event = new CustomEvent('ws:freeze_ops', { detail: data });
     window.dispatchEvent(event);
   }
 

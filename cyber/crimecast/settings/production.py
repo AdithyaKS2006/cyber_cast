@@ -3,10 +3,7 @@ from .base import *
 
 # ── Security ──────────────────────────────────────────────
 DEBUG = False
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
-
-if not ALLOWED_HOSTS:
-    raise ValueError("ALLOWED_HOSTS must be set in production")
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
 # GDPR IP anonymization (production default)
 ANONYMIZE_IP_ADDRESSES = env.bool('ANONYMIZE_IP_ADDRESSES', default=True)

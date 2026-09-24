@@ -34,7 +34,17 @@
       "Bash(./venv/bin/python -c \"import sys; sys.path.insert\\(0,'.'\\); import os; os.environ.setdefault\\('DJANGO_SETTINGS_MODULE','crimecast.settings'\\); import django; django.setup\\(\\); from apps.ml_engine.zones import FEATURE_COLS; print\\('num features:', len\\(FEATURE_COLS\\)\\)\")",
       "WebFetch(domain:github.com)",
       "Bash(grep -nA15 \"class PackageDispatchView\" apps/predictions/views.py)",
-      "Bash(grep -nE \"Math.random|const \\(ZONES|THREATS|NODES|DATA|markers|SCORES|attacks\\)|= \\\\[$|latlng|lat:|coordinates\" components/ai/ThreatScoringEngine.jsx components/analytics/ThreatMap.jsx)"
+      "Bash(grep -nE \"Math.random|const \\(ZONES|THREATS|NODES|DATA|markers|SCORES|attacks\\)|= \\\\[$|latlng|lat:|coordinates\" components/ai/ThreatScoringEngine.jsx components/analytics/ThreatMap.jsx)",
+      "Bash(ls -la \"/home/adithya-k-s/Downloads/SIH2026-IDEA-Presentation-Format.pptx\" && echo \"---FILE EXISTS---\")",
+      "Bash(mkdir -p /home/adithya-k-s/Downloads/crimecast_ppt)",
+      "Bash(cp \"/home/adithya-k-s/Downloads/SIH2026-IDEA-Presentation-Format.pptx\" ./template.pptx)",
+      "Bash(python __TRACKED_VAR__/scripts/thumbnail.py template.pptx template-thumbs)",
+      "Bash(markitdown template.pptx)",
+      "Bash(python3 -c \"import sys,zipfile; zipfile.ZipFile\\('template.pptx'\\).extractall\\('unpacked'\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(mkdir -p assets)",
+      "Bash(cp unpacked/ppt/media/image2.png assets/logo.png)",
+      "Bash(node -e \"try{require\\('pptxgenjs'\\);require\\('sharp'\\);require\\('react-icons/fi'\\);require\\('react'\\);require\\('react-dom/server'\\);console.log\\('ALL MODULES OK'\\)}catch\\(e\\){console.log\\('MISSING:',e.message\\)}\")"
     ]
   }
 }

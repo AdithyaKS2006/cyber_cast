@@ -36,7 +36,7 @@ def retrain_model(model_id: str = None):
 
     classifier_map = {
         'lightgbm': (LightGBMClassifier, 'lightgbm_v1.pkl'),
-        'lightgbm': (RandomForestAttackClassifier, 'lightgbm_v1.pkl'),
+        'random_forest': (RandomForestAttackClassifier, 'lightgbm_v1.pkl'),
         'svm': (SVMAttackClassifier, 'svm_v1.pkl'),
     }
 
@@ -66,8 +66,8 @@ def retrain_model(model_id: str = None):
 @shared_task(name='apps.ml_engine.tasks.check_model_drift')
 def check_model_drift():
     """
-    Weekly drift check: compare champion model accuracy against recent predictions.
-    If accuracy drops below threshold, flags model for retraining.
+    Weekly drift check: evaluates prediction confidence distribution and ground-truth resolution outcomes.
+    If high-confidence share or ground-truth precision drops below threshold, flags model for retraining.
     """
     from apps.ml_engine.models import MLModel, MLPrediction
     from django.utils import timezone
@@ -90,17 +90,28 @@ def check_model_drift():
         logger.info(f'Insufficient predictions ({total}) for drift check — skipping.')
         return {'status': 'insufficient_data', 'count': total}
 
-    # Simple accuracy proxy: predictions with high confidence treated as correct
-    high_confidence = recent_preds.filter(confidence__gte=0.75).count()
-    accuracy = high_confidence / total
+    # Evaluate resolved predictions (INTERCEPTED vs MISSED / FALSE_ALARM)
+    resolved_preds = recent_preds.filter(outcome__in=['INTERCEPTED', 'MISSED', 'FALSE_ALARM'])
+    resolved_count = resolved_preds.count()
 
-    logger.info(f'Drift check: champion={champion.name}, accuracy={accuracy:.2%}, samples={total}')
+    if resolved_count >= 20:
+        intercepted = resolved_preds.filter(outcome='INTERCEPTED').count()
+        eval_metric = intercepted / resolved_count
+        metric_name = 'ground_truth_precision'
+    else:
+        # Fallback to high confidence ratio (confidence >= 0.75)
+        high_confidence = recent_preds.filter(confidence__gte=0.75).count()
+        eval_metric = high_confidence / total
+        metric_name = 'high_confidence_ratio'
 
-    if accuracy < 0.70:
-        logger.warning(f'Model drift detected for {champion.name}. Accuracy: {accuracy:.2%}')
-        return {'status': 'drift_detected', 'accuracy': accuracy, 'model': champion.name}
+    logger.info(f'Drift check: champion={champion.name}, {metric_name}={eval_metric:.2%}, samples={total}')
 
-    return {'status': 'ok', 'accuracy': accuracy, 'model': champion.name}
+    if eval_metric < 0.65:
+        logger.warning(f'Model drift detected for {champion.name}. {metric_name}: {eval_metric:.2%}')
+        return {'status': 'drift_detected', metric_name: eval_metric, 'model': champion.name}
+
+    return {'status': 'ok', metric_name: eval_metric, 'model': champion.name}
+
 
 
 @shared_task(name='apps.ml_engine.tasks.check_all_model_drift')

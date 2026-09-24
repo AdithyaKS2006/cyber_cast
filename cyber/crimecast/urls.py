@@ -22,7 +22,7 @@ from django.views.generic import TemplateView
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.utils import timezone
-from apps.core.views import landing_view, app_view, health_check, client_error_view, agent_status_view, integration_test_view
+from apps.core.views import landing_view, app_view, health_check, client_error_view, agent_status_view, integration_test_view, system_config_view
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from django_prometheus import exports
 from rest_framework.decorators import api_view
@@ -78,6 +78,16 @@ urlpatterns = [
         path('health/', health_check, name='health_check'),
         path('agents/status/', agent_status_view, name='agent_status'),
     ])),
+
+    # API v2 routes
+    path('api/v2/ingest/', include('apps.ingest.urls')),
+    path('api/v2/graph/', include('apps.graph.urls')),
+    path('api/v1/graph/', include('apps.graph.urls')),
+    path('api/v2/freeze/', include('apps.freeze.urls')),
+    path('api/v1/freeze/', include('apps.freeze.urls')),
+
+    path('api/v2/system/config/', system_config_view, name='system_config'),
+
 
     # Legal pages
     path('privacy/', TemplateView.as_view(template_name='privacy.html'), name='privacy'),

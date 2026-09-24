@@ -10,10 +10,14 @@ const Sidebar = ({
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
 
+  const userRole = typeof user?.role === 'object' && user?.role !== null
+    ? String(user.role.name || JSON.stringify(user.role))
+    : String(user?.role || '');
+
   const menuGroups = ALL_MENU_GROUPS
     .map(g => ({ 
       ...g, 
-      items: g.items.filter(i => i.roles.includes(user?.role)) 
+      items: g.items.filter(i => i.roles.includes(userRole) || i.roles.includes(userRole.toLowerCase())) 
     }))
     .filter(g => g.items.length > 0);
 
@@ -151,7 +155,7 @@ const Sidebar = ({
               <div className="w-2 h-2 rounded-full animate-pulse"
                    style={{ background: 'linear-gradient(135deg, #f97316, #ef4444)', boxShadow: '0 0 8px rgba(249,115,22,0.5)' }} />
               <span className="text-[10px] font-black uppercase tracking-widest"
-                    style={{ background: 'linear-gradient(90deg, #f97316, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{user?.role}</span>
+                    style={{ background: 'linear-gradient(90deg, #f97316, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{userRole}</span>
             </div>
           </div>
         )}

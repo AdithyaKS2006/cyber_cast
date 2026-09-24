@@ -14,8 +14,8 @@ const NotificationCenter = ({
     const normalized = {
       id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       type: notif.type || 'VALIDATION',
-      title: notif.title || 'New Alert',
-      message: notif.message || 'WebSocket notification received',
+      title: typeof notif.title === 'object' ? JSON.stringify(notif.title) : String(notif.title || 'New Alert'),
+      message: typeof notif.message === 'object' ? JSON.stringify(notif.message) : String(notif.message || 'WebSocket notification received'),
       read: false,
       page: notif.page || 'notifications',
       time: notif.time || 'Just now',

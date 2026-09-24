@@ -44,7 +44,6 @@ click-repl==0.3.0
 
 # === ML Core — Fraud Prediction ===
 scikit-learn==1.8.0
-lightgbm==4.5.0
 lightgbm==4.7.0
 joblib==1.5.3
 numpy==1.26.4

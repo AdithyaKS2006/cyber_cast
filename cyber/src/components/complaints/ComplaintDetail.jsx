@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   ChevronLeft, Zap, Clock, CheckCircle, AlertTriangle,
   ArrowRight, ExternalLink, Loader2, MapPin, Building2,
-  DollarSign, Calendar, User, FileText,
+  DollarSign, Calendar, User, FileText, Network, LayoutDashboard
 } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
+import MoneyTrailGraph from '../intelligence/MoneyTrailGraph';
 
 // ── Status badge ──────────────────────────────────────────────────────────
 const STATUS_META = {
@@ -34,7 +35,7 @@ const InfoRow = ({ icon: Icon, label, value }) => (
     </div>
     <div>
       <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">{label}</p>
-      <p className="text-[11px] font-bold text-white">{value || '—'}</p>
+      <p className="text-[11px] font-bold text-white">{typeof value === 'object' && value !== null ? (value.name || value.label || JSON.stringify(value)) : String(value ?? '—')}</p>
     </div>
   </div>
 );
@@ -64,15 +65,23 @@ const ComplaintDetail = ({ complaintId, navigate }) => {
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState('');
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    if (!complaintId) return;
+    if (!complaintId || complaintId.startsWith(':') || complaintId === 'undefined' || complaintId === 'null') {
+      setError('Invalid Complaint ID format.');
+      setLoading(false);
+      return;
+    }
     const load = async () => {
       setLoading(true);
       setError('');
       try {
         const res = await apiClient(`/api/v1/complaints/${complaintId}/`);
-        if (!res.ok) throw new Error(`Failed to load complaint (${res.status})`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.message || `Failed to load complaint (${res.status})`);
+        }
         const data = await res.json();
         setComplaint(data);
 
@@ -86,7 +95,8 @@ const ComplaintDetail = ({ complaintId, navigate }) => {
           }
         } catch {}
       } catch (e) {
-        setError(e.message || 'Failed to load complaint');
+        const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+        setError(msg || 'Failed to load complaint');
       } finally {
         setLoading(false);
       }
@@ -134,7 +144,8 @@ const ComplaintDetail = ({ complaintId, navigate }) => {
         setGenError('Prediction pipeline is still running — check back in a moment.');
       }
     } catch (e) {
-      setGenError(e.message || 'Failed to generate prediction');
+      const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+      setGenError(msg || 'Failed to generate prediction');
     } finally {
       setGenerating(false);
     }
@@ -155,7 +166,7 @@ const ComplaintDetail = ({ complaintId, navigate }) => {
   if (error) return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4" style={{ background: '#000' }}>
       <AlertTriangle className="w-12 h-12 text-red-400" />
-      <p className="text-white font-bold uppercase text-sm">{error}</p>
+      <p className="text-white font-bold uppercase text-sm">{typeof error === 'object' ? JSON.stringify(error) : String(error)}</p>
       <button onClick={() => navigate('complaints')}
               className="px-4 py-2 rounded-xl bg-zinc-900 text-zinc-400 text-[10px] font-black uppercase hover:text-white transition-colors">
         ← Back to Complaints
@@ -166,7 +177,7 @@ const ComplaintDetail = ({ complaintId, navigate }) => {
   const hops = complaint?.transaction_hops ?? [];
 
   return (
-    <div className="min-h-screen p-6 space-y-6" style={{ background: 'linear-gradient(135deg, #000000, #0a0a0a)' }}>
+    <div className="space-y-6 pb-12">
       {/* Back + Header */}
       <div className="flex items-center gap-4">
         <button onClick={() => navigate('complaints')}
@@ -213,14 +224,43 @@ const ComplaintDetail = ({ complaintId, navigate }) => {
         </div>
       </div>
 
+      {/* ── Navigation Tabs ────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2 border-b border-zinc-800/80 pb-3">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+            activeTab === 'overview'
+              ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'
+              : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800 hover:text-white'
+          }`}
+        >
+          <LayoutDashboard className="w-3.5 h-3.5" />
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('money-trail')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+            activeTab === 'money-trail'
+              ? 'bg-orange-500 text-black shadow-lg shadow-orange-500/20'
+              : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800 hover:text-white'
+          }`}
+        >
+          <Network className="w-3.5 h-3.5" />
+          Money Trail Graph
+        </button>
+      </div>
+
       {genError && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-red-900/20 border border-red-500/30">
           <AlertTriangle className="w-4 h-4 text-red-400" />
-          <p className="text-[10px] text-red-400 font-bold">{genError}</p>
+          <p className="text-[10px] text-red-400 font-bold">{typeof genError === 'object' ? JSON.stringify(genError) : String(genError)}</p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {activeTab === 'money-trail' ? (
+        <MoneyTrailGraph complaintId={complaintId} />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Victim & Fraud info */}
@@ -368,6 +408,7 @@ const ComplaintDetail = ({ complaintId, navigate }) => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

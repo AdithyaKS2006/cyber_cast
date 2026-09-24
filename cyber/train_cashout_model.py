@@ -255,6 +255,29 @@ def main():
         json.dump(clf_report_dict, f, indent=2)
     print(f"\nSaved full per-zone classification report to {per_zone_metrics_path}")
 
+    # --- 7-FEATURE ABLATION STUDY ---
+    print("Running 7-Feature Core Signal Ablation Study...")
+    signal_indices = [FEATURE_COLS.index(sf) for sf in SIGNAL_FEATURES]
+    X_train_sig = X_train[:, signal_indices]
+    X_test_sig = X_test[:, signal_indices]
+
+    sig_lgbm = lgb.LGBMClassifier(
+        n_estimators=200, learning_rate=0.04, max_depth=6, num_leaves=31,
+        class_weight='balanced', colsample_bytree=0.6, subsample=0.8,
+        reg_alpha=0.1, reg_lambda=0.1, random_state=42, verbosity=-1
+    )
+    calibrated_sig_model = CalibratedClassifierCV(estimator=sig_lgbm, method='sigmoid', cv=3)
+    calibrated_sig_model.fit(X_train_sig, y_train)
+    sig_prob = calibrated_sig_model.predict_proba(X_test_sig)
+    sig_pred = np.argmax(sig_prob, axis=1)
+
+    sig_top1 = float(np.mean(sig_pred == y_test))
+    sig_top3 = top_k_accuracy(y_test, sig_prob, k=3)
+    sig_top5 = top_k_accuracy(y_test, sig_prob, k=5)
+
+    print(f" 7-Signal-Only Top-1 Acc: {sig_top1*100:.2f}% | Top-3 Acc: {sig_top3*100:.2f}% | Top-5 Acc: {sig_top5*100:.2f}%")
+    print(f" 38-Feature Full Top-1 Acc: {top1_acc*100:.2f}% | Top-3 Acc: {top3_acc*100:.2f}% | Top-5 Acc: {top5_acc*100:.2f}%")
+
     metrics_data = {
         "dataset_name": "fraud_data_clean.csv",
         "macro_calibration_applied": "Option B (NCRB + RBI/NPCI Macro Telemetry)",
@@ -275,6 +298,19 @@ def main():
         "headline_framing": "Shrinks 700-district search space to ranked shortlist of 5",
         "honest_evaluation_verified": True,
         "worst_performing_zones": worst_zones_data,
+        "ablation_study": {
+            "7_signal_features_only": {
+                "top1_accuracy": round(sig_top1 * 100, 2),
+                "top3_accuracy": round(sig_top3 * 100, 2),
+                "top5_accuracy": round(sig_top5 * 100, 2)
+            },
+            "38_full_features": {
+                "top1_accuracy": round(top1_acc * 100, 2),
+                "top3_accuracy": round(top3_acc * 100, 2),
+                "top5_accuracy": round(top5_acc * 100, 2)
+            },
+            "top5_accuracy_gain_pts": round((top5_acc - sig_top5) * 100, 2)
+        },
         "feature_signal_breakdown": {
             "core_signal_features": SIGNAL_FEATURES,
             "core_signal_importance_share_pct": signal_share_pct,

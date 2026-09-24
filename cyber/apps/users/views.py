@@ -1,8 +1,9 @@
+from datetime import timedelta
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -108,11 +109,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             # Set secure cookies for JWT
             access_token = response.data.get('access')
             refresh_token = response.data.get('refresh')
+            access_lifetime = int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(hours=2)).total_seconds())
+            refresh_lifetime = int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME', timedelta(days=7)).total_seconds())
             if access_token:
                 response.set_cookie(
                     'access_token',
                     access_token,
-                    max_age=15 * 60,
+                    max_age=access_lifetime,
                     httponly=True,
                     secure=not settings.DEBUG,
                     samesite='Strict',
@@ -121,7 +124,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 response.set_cookie(
                     'ws_token',
                     access_token,
-                    max_age=15 * 60,
+                    max_age=access_lifetime,
                     httponly=False,
                     secure=not settings.DEBUG,
                     samesite='Strict',
@@ -131,7 +134,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 response.set_cookie(
                     'refresh_token',
                     refresh_token,
-                    max_age=7 * 24 * 60 * 60,
+                    max_age=refresh_lifetime,
                     httponly=True,
                     secure=not settings.DEBUG,
                     samesite='Strict',
@@ -146,8 +149,68 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 
         return response
 
+class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Cookie-aware TokenRefreshView:
+    - Extracts `refresh` token from request.COOKIES if not present in request.data
+    - Refreshes access token and sets updated `access_token` and `ws_token` cookies on response
+    - Rotates `refresh_token` and sets rotated cookie
+    """
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if not data.get('refresh'):
+            cookie_refresh = request.COOKIES.get('refresh_token')
+            if cookie_refresh:
+                data['refresh'] = cookie_refresh
+
+        serializer = self.get_serializer(data=data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response({'detail': 'Token is invalid or expired'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        response_data = serializer.validated_data
+        response = Response(response_data, status=status.HTTP_200_OK)
+
+        access_token = response_data.get('access')
+        refresh_token = response_data.get('refresh')
+
+        access_lifetime = int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(hours=2)).total_seconds())
+        refresh_lifetime = int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME', timedelta(days=7)).total_seconds())
+
+        if access_token:
+            response.set_cookie(
+                'access_token',
+                access_token,
+                max_age=access_lifetime,
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite='Strict',
+                path='/',
+            )
+            response.set_cookie(
+                'ws_token',
+                access_token,
+                max_age=access_lifetime,
+                httponly=False,
+                secure=not settings.DEBUG,
+                samesite='Strict',
+                path='/',
+            )
+        if refresh_token:
+            response.set_cookie(
+                'refresh_token',
+                refresh_token,
+                max_age=refresh_lifetime,
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite='Strict',
+                path='/api/v1/auth/refresh/',
+            )
+        return response
+
 class LogoutView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         return self._logout_response()

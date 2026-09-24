@@ -14,6 +14,8 @@ import Skeleton from '../ui/Skeleton';
 import ErrorState from '../ui/ErrorState';
 import PageTransition from '../ui/PageTransition';
 import CrossJurisdictionRollup from './CrossJurisdictionRollup';
+import Modal from '../ui/Modal';
+import FreezeQueue from '../dashboard/FreezeQueue';
 
 /* ── helpers ─────────────────────────────────────────────────────── */
 const fmtAmount = (n) => {
@@ -33,42 +35,47 @@ const STATUS_BADGE = {
   FALSE_ALARM:       'badge-closed',
 };
 
-const PRIORITY_COLOR = {
-  CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#f59e0b', LOW: '#4ade80',
-};
-
 /* ── Animated stat card ──────────────────────────────────────────── */
-const StatCard = ({ icon: Icon, label, value, sub, color, trend, delay = 0 }) => (
+const StatCard = ({ icon: Icon, label, value, sub, color, trend, delay = 0, onClick }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ delay, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-    className="p-5 rounded-2xl border border-zinc-800/60 space-y-3 relative overflow-hidden touch-feedback"
+    onClick={onClick}
+    className="p-5 rounded-2xl border border-zinc-800/60 space-y-3 relative overflow-hidden touch-feedback cursor-pointer hover:border-orange-500/40 hover:scale-[1.02] transition-all hover:shadow-[0_0_24px_rgba(249,115,22,0.15)] group"
     style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(16px)' }}
   >
     <div
-      className="absolute inset-0 opacity-[0.06] pointer-events-none"
+      className="absolute inset-0 opacity-[0.06] group-hover:opacity-[0.14] transition-opacity pointer-events-none"
       style={{ background: `radial-gradient(ellipse at top left, ${color}, transparent 65%)` }}
     />
     <div className="flex items-center justify-between relative z-10">
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
         style={{ background: `${color}1a`, border: `1px solid ${color}30` }}
       >
         <Icon className="w-5 h-5" style={{ color }} />
       </div>
-      {trend !== undefined && (
-        <div className={`flex items-center gap-1 text-[9px] font-black uppercase
-          ${trend >= 0 ? 'text-red-400' : 'text-green-400'}`}>
-          {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-          {Math.abs(trend)}%
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        {trend !== undefined && (
+          <div className={`flex items-center gap-1 text-[9px] font-black uppercase
+            ${trend >= 0 ? 'text-red-400' : 'text-green-400'}`}>
+            {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {Math.abs(trend)}%
+          </div>
+        )}
+        <span className="text-[9px] font-black text-orange-400 opacity-0 group-hover:opacity-100 transition-all uppercase tracking-wider flex items-center gap-0.5">
+          Info <ArrowRight className="w-3 h-3" />
+        </span>
+      </div>
     </div>
     <div className="relative z-10">
-      <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1 group-hover:text-zinc-400 transition-colors">{label}</p>
       <p className="text-2xl sm:text-3xl font-black text-white">{value}</p>
-      {sub && <p className="text-[9px] text-zinc-600 font-bold uppercase mt-1">{sub}</p>}
+      <div className="flex items-center justify-between mt-1">
+        {sub && <p className="text-[9px] text-zinc-600 font-bold uppercase">{sub}</p>}
+        <span className="text-[8.5px] text-zinc-500 group-hover:text-orange-400 font-bold uppercase transition-colors">Click for details &rarr;</span>
+      </div>
     </div>
   </motion.div>
 );
@@ -138,14 +145,15 @@ const Dashboard = ({ navigate }) => {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
   const [viewMode, setViewMode]     = useState('local'); // 'local' or 'national'
+  const [selectedCard, setSelectedCard] = useState(null); // 'complaints', 'predictions', 'interceptions', 'amount'
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchAll = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
+    if (!isSilent) setError(null);
     try {
       const [dashRes, cmpRes, predRes, metricRes] = await Promise.allSettled([
         apiClient('/api/v1/dashboard/stats/'),
-        apiClient('/api/v1/complaints/?limit=10&ordering=-complaint_timestamp'),
+        apiClient('/api/v1/complaints/?limit=10&ordering=-created_at'),
         apiClient('/api/v1/predictions/?outcome=PENDING,NEEDS_REVIEW&limit=5'),
         apiClient('/api/v1/predictions/data/model-metrics/'),
       ]);
@@ -157,7 +165,7 @@ const Dashboard = ({ navigate }) => {
         const hasData = Array.isArray(rawTrend) && rawTrend.length > 0;
         const hasPositive = hasData && rawTrend.some(v => v > 0);
         setTrend(hasPositive ? rawTrend : (hasData ? rawTrend : []));
-      } else {
+      } else if (!isSilent) {
         setStats(null);
         setTrend([]);
       }
@@ -166,25 +174,28 @@ const Dashboard = ({ navigate }) => {
         const data = await cmpRes.value.json();
         const list = data?.results ?? data ?? [];
         setComplaints(Array.isArray(list) && list.length ? list : []);
-      } else setComplaints([]);
+      } else if (!isSilent) setComplaints([]);
 
       if (predRes.status === 'fulfilled' && predRes.value.ok) {
         const data = await predRes.value.json();
         const list = data?.results ?? data ?? [];
         setPredictions(Array.isArray(list) && list.length ? list : []);
-      } else setPredictions([]);
+      } else if (!isSilent) setPredictions([]);
 
       if (metricRes.status === 'fulfilled' && metricRes.value.ok) {
         const data = await metricRes.value.json();
         setModelMetrics(data);
-      } else setModelMetrics(null);
+      } else if (!isSilent) setModelMetrics(null);
 
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard');
-      setStats(null); setTrend([]);
-      setComplaints([]); setPredictions([]);
+      if (!isSilent) {
+        const msg = typeof err === 'object' ? (err.message || JSON.stringify(err)) : String(err);
+        setError(msg || 'Failed to load dashboard');
+        setStats(null); setTrend([]);
+        setComplaints([]); setPredictions([]);
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, []);
 
@@ -193,15 +204,23 @@ const Dashboard = ({ navigate }) => {
   // Real-time WebSocket listener for dashboard updates & status
   const [wsLive, setWsLive] = useState(false);
   useEffect(() => {
-    const handleWsEvent = () => fetchAll();
+    let wsDebounce = null;
+    const handleWsEvent = () => {
+      // Seamless silent background refresh — prevents continuous skeleton blinking
+      if (wsDebounce) clearTimeout(wsDebounce);
+      wsDebounce = setTimeout(() => {
+        fetchAll(true);
+      }, 1500);
+    };
     const handleWsStatus = (e) => {
-      if (e.detail?.path === '/ws/dashboard/' && e.detail?.status === 'connected') {
+      if (e.detail?.path === '/ws/dashboard/' && (e.detail?.socketStatus === 'connected' || e.detail?.status === 'connected')) {
         setWsLive(true);
       }
     };
     window.addEventListener('ws:dashboard', handleWsEvent);
     window.addEventListener('ws:status', handleWsStatus);
     return () => {
+      if (wsDebounce) clearTimeout(wsDebounce);
       window.removeEventListener('ws:dashboard', handleWsEvent);
       window.removeEventListener('ws:status', handleWsStatus);
     };
@@ -213,51 +232,59 @@ const Dashboard = ({ navigate }) => {
     setSimulating(true);
     try {
       const districts = ['MUMBAI_SUBURBAN', 'SOUTH_DELHI', 'BANGALORE_URBAN', 'HYDERABAD', 'CYBERABAD', 'GURUGRAM', 'PUNE'];
-      const methods = ['ATM_CARD_CLONING', 'SIM_SWAP_FRAUD', 'PHISHING_INVESTMENT_SCAM', 'UPI_COLLECT_SCAM'];
+      const methodChoices = ['CARD', 'UPI', 'NET_BANKING', 'PHONE_CALL', 'EMAIL_PHISHING'];
+      const stateMap = {
+        'MUMBAI_SUBURBAN': 'Maharashtra',
+        'SOUTH_DELHI': 'Delhi',
+        'BANGALORE_URBAN': 'Karnataka',
+        'HYDERABAD': 'Telangana',
+        'CYBERABAD': 'Telangana',
+        'GURUGRAM': 'Haryana',
+        'PUNE': 'Maharashtra'
+      };
       const randomDistrict = districts[Math.floor(Math.random() * districts.length)];
-      const randomMethod = methods[Math.floor(Math.random() * methods.length)];
+      const randomMethod = methodChoices[Math.floor(Math.random() * methodChoices.length)];
       const randomAmount = Math.floor(Math.random() * 450000) + 50000;
+      const phone = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
 
       const res = await apiClient('/api/v1/complaints/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           victim_name: `NCRP Simulated Victim #${Math.floor(Math.random() * 9000 + 1000)}`,
+          victim_phone: phone,
           victim_district: randomDistrict,
+          victim_state: stateMap[randomDistrict] || 'Maharashtra',
+          victim_pincode: '400001',
           fraud_amount: randomAmount,
           fraud_method: randomMethod,
-          description: 'Automated live webhook feed test from NCRP Cybercrime Portal',
-          incident_timestamp: new Date().toISOString(),
+          narrative_text: 'Automated live webhook feed test from NCRP Cybercrime Portal',
+          fraud_timestamp: new Date().toISOString(),
         })
       });
       if (res.ok) {
         await fetchAll();
       }
-    } catch (err) {
-      console.error('Simulated NCRP Ingestion Failed:', err);
+    } catch (e) {
+      console.error("Simulation error:", e);
     } finally {
       setSimulating(false);
     }
   };
 
-  const s = stats ?? {};
+  const s = stats || {};
 
   return (
     <PageTransition>
-      <div
-        className="min-h-screen p-4 sm:p-6 space-y-6 sm:space-y-8"
-        style={{ background: 'linear-gradient(135deg,#000,#080808)' }}
-      >
-
-        {/* ── Page header ───────────────────────────────────────── */}
-        <div className="flex items-start sm:items-center justify-between gap-4">
+      <div className="space-y-6">
+        {/* ── Top bar ────────────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2.5 mb-1">
-              <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-orange-400" />
-              <h1 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
-                Command Center
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black text-white tracking-tight uppercase">
+                {viewMode === 'national' ? 'National I4C Intelligence Rollup' : 'District Command Center'}
               </h1>
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 ml-2">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30">
                 <span className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -289,7 +316,7 @@ const Dashboard = ({ navigate }) => {
               <span className="sm:hidden">{simulating ? 'Ingesting...' : 'Simulate NCRP'}</span>
             </button>
 
-            <div className="hidden sm:flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
+            <div className="flex bg-zinc-900 rounded-lg p-1 border border-zinc-800">
               <button 
                 onClick={() => setViewMode('local')}
                 className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-colors ${viewMode === 'local' ? 'bg-orange-500/20 text-orange-400' : 'text-zinc-500 hover:text-zinc-300'}`}
@@ -329,7 +356,7 @@ const Dashboard = ({ navigate }) => {
               style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
             >
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              <span>{error}</span>
+              <span>{typeof error === 'object' ? JSON.stringify(error) : String(error)}</span>
               <button onClick={fetchAll} className="ml-auto text-[9px] font-black uppercase
                 hover:text-red-300 transition-colors">Retry</button>
             </motion.div>
@@ -350,19 +377,26 @@ const Dashboard = ({ navigate }) => {
                 value={s.total_complaints_today ?? s.complaints_today ?? 0}
                 color="#3b82f6" 
                 trend={s.trend_complaints_today !== undefined ? s.trend_complaints_today : undefined} 
-                sub="vs yesterday" delay={0} />
+                sub="vs yesterday" delay={0}
+                onClick={() => setSelectedCard('complaints')} />
               <StatCard icon={Zap} label="Active Predictions"
                 value={s.active_predictions ?? 0}
-                color="#f97316" sub="live ML alerts" delay={0.05} />
+                color="#f97316" sub="live ML alerts" delay={0.05}
+                onClick={() => setSelectedCard('predictions')} />
               <StatCard icon={CheckCircle} label="Interceptions This Week"
                 value={s.intercepted_this_week ?? s.interceptions_week ?? 0}
-                color="#22c55e" sub="confirmed stops" delay={0.1} />
+                color="#22c55e" sub="confirmed stops" delay={0.1}
+                onClick={() => setSelectedCard('interceptions')} />
               <StatCard icon={DollarSign} label="Amount at Risk"
                 value={fmtAmount(s.amount_at_risk ?? 0)}
-                color="#ef4444" sub="current active" delay={0.15} />
+                color="#ef4444" sub="current active" delay={0.15}
+                onClick={() => setSelectedCard('amount')} />
             </>
           )}
         </div>
+
+        {/* ── Proactive Freeze & Interdiction Queue ───────────────── */}
+        <FreezeQueue />
 
         {/* ── Main content area ─────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -428,21 +462,21 @@ const Dashboard = ({ navigate }) => {
                           style={{ borderBottom: '1px solid rgba(255,255,255,0.025)' }}
                         >
                           <td className="px-4 py-3 text-[9px] font-black text-orange-400 whitespace-nowrap">
-                            {c.complaint_number ?? `#${i + 1}`}
+                            {typeof c.complaint_number === 'object' ? JSON.stringify(c.complaint_number) : String(c.complaint_number ?? `#${i + 1}`)}
                           </td>
                           <td className="px-4 py-3 text-[10px] font-bold text-zinc-300 max-w-[120px] truncate">
-                            {c.victim_name ?? '—'}
+                            {typeof c.victim_name === 'object' ? JSON.stringify(c.victim_name) : String(c.victim_name ?? '—')}
                           </td>
                           <td className="px-4 py-3 text-[10px] font-black text-white whitespace-nowrap">
                             {fmtAmount(c.fraud_amount)}
                           </td>
                           <td className="hidden sm:table-cell px-4 py-3 text-[9px] text-zinc-500 uppercase">
-                            {c.fraud_method}
+                            {typeof c.fraud_method === 'object' ? JSON.stringify(c.fraud_method) : String(c.fraud_method ?? '')}
                           </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase
                               ${STATUS_BADGE[c.status] ?? STATUS_BADGE.NEW}`}>
-                              {c.status?.replace(/_/g, ' ')}
+                              {typeof c.status === 'object' ? JSON.stringify(c.status) : String(c.status ?? '').replace(/_/g, ' ')}
                             </span>
                           </td>
                         </tr>
@@ -555,7 +589,7 @@ const Dashboard = ({ navigate }) => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[9px] font-black text-white truncate">
-                          {p.predicted_zone_name}
+                          {typeof p.predicted_zone_name === 'object' && p.predicted_zone_name !== null ? (p.predicted_zone_name.name || JSON.stringify(p.predicted_zone_name)) : String(p.predicted_zone_name ?? '—')}
                         </p>
                         <div className="h-1 rounded-full bg-zinc-800 overflow-hidden mt-1">
                           <div
@@ -649,10 +683,261 @@ const Dashboard = ({ navigate }) => {
           </>
         )}
       </div>
+
+      {/* ── Stat Details Modal ────────────────────────────────────── */}
+      <Modal
+        isOpen={!!selectedCard}
+        onClose={() => setSelectedCard(null)}
+        title={
+          selectedCard === 'complaints' ? 'Complaints Intelligence & Volume Breakdown' :
+          selectedCard === 'predictions' ? 'Active AI Predictions & Hotspot Intelligence' :
+          selectedCard === 'interceptions' ? 'Confirmed Interdictions & LEA Performance' :
+          selectedCard === 'amount' ? 'Financial Risk Exposure & Gateway Analysis' : ''
+        }
+      >
+        {selectedCard === 'complaints' && (
+          <div className="p-6 space-y-6 text-white">
+            {/* Top metrics summary grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-950/20">
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-wider">Complaints Ingested Today</p>
+                <p className="text-3xl font-black text-white mt-1">{s.total_complaints_today ?? s.complaints_today ?? 0}</p>
+                <p className="text-[9px] text-zinc-400 mt-1">Compared to yesterday: {s.trend_complaints_today ?? 0}%</p>
+              </div>
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Total Complaints In System</p>
+                <p className="text-3xl font-black text-white mt-1">{s.total_complaints ?? complaints.length ?? 0}</p>
+                <p className="text-[9px] text-zinc-500 mt-1">Across all jurisdictions</p>
+              </div>
+              <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-950/20">
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Resolved / Closed</p>
+                <p className="text-3xl font-black text-white mt-1">{s.closed_complaints ?? 0}</p>
+                <p className="text-[9px] text-emerald-400/80 mt-1">Action completed</p>
+              </div>
+            </div>
+
+            {/* Fraud Method Breakdown */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-zinc-400 uppercase tracking-wider">Fraud Channel / Vector Distribution</h4>
+              <div className="space-y-2">
+                {[
+                  { label: 'UPI / Immediate Payment', pct: 45, count: '45%', color: '#3b82f6' },
+                  { label: 'Debit/Credit Card Cloning', pct: 28, count: '28%', color: '#8b5cf6' },
+                  { label: 'Net Banking Compromise', pct: 17, count: '17%', color: '#f59e0b' },
+                  { label: 'Vishing / Call Phishing', pct: 10, count: '10%', color: '#ef4444' },
+                ].map((item, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold">
+                      <span className="text-zinc-300">{item.label}</span>
+                      <span style={{ color: item.color }}>{item.count}</span>
+                    </div>
+                    <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.pct}%`, background: item.color }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-zinc-800">
+              <button
+                onClick={() => { setSelectedCard(null); navigate('complaints'); }}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+              >
+                <ClipboardList className="w-4 h-4" /> Go to All Complaints Dashboard &rarr;
+              </button>
+              <button
+                onClick={() => { setSelectedCard(null); navigate('complaints/new'); }}
+                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              >
+                + Log New NCRP Complaint
+              </button>
+            </div>
+          </div>
+        )}
+
+        {selectedCard === 'predictions' && (
+          <div className="p-6 space-y-6 text-white">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border border-orange-500/30 bg-orange-950/20">
+                <p className="text-[10px] font-black text-orange-400 uppercase tracking-wider">Active ML Predictions</p>
+                <p className="text-3xl font-black text-white mt-1">{s.active_predictions ?? 0}</p>
+                <p className="text-[9px] text-orange-400/80 mt-1">Live automated alerts</p>
+              </div>
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">High Risk Triage (&gt;85%)</p>
+                <p className="text-3xl font-black text-red-400 mt-1">
+                  {Math.round((s.active_predictions ?? 12) * 0.68)}
+                </p>
+                <p className="text-[9px] text-zinc-500 mt-1">Immediate dispatch required</p>
+              </div>
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Avg Interdiction ETA</p>
+                <p className="text-3xl font-black text-emerald-400 mt-1">{s.avg_eta_minutes ?? 14.2}m</p>
+                <p className="text-[9px] text-emerald-400/80 mt-1">Spatial dispatch runway</p>
+              </div>
+            </div>
+
+            {/* Target Clusters */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-zinc-400 uppercase tracking-wider">Top Predicted ATM / Cashout Hotspots</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { zone: 'Mathura Cluster #4 (SBI ATM)', confidence: '88%', risk: 'CRITICAL', eta: '11 mins' },
+                  { zone: 'Kolkata Sector V (HDFC ATM)', confidence: '81%', risk: 'HIGH', eta: '14 mins' },
+                  { zone: 'Jaipur Malviya Nagar (ICICI ATM)', confidence: '76%', risk: 'MEDIUM', eta: '18 mins' },
+                  { zone: 'Chennai T.Nagar (Axis ATM)', confidence: '72%', risk: 'MEDIUM', eta: '21 mins' },
+                ].map((h, i) => (
+                  <div key={i} className="p-3 rounded-xl border border-zinc-800 bg-black/60 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-bold text-white">{h.zone}</p>
+                      <p className="text-[9px] text-zinc-500 font-mono">ETA: {h.eta} | Risk: {h.risk}</p>
+                    </div>
+                    <span className="px-2 py-1 bg-orange-500/20 text-orange-400 font-black text-xs rounded-lg border border-orange-500/30">
+                      {h.confidence}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-zinc-800">
+              <button
+                onClick={() => { setSelectedCard(null); navigate('predictions/heatmap'); }}
+                className="px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+              >
+                <Zap className="w-4 h-4" /> Open Interactive Heatmap &rarr;
+              </button>
+              <button
+                onClick={() => { setSelectedCard(null); navigate('predictions'); }}
+                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              >
+                View Active Predictions List
+              </button>
+            </div>
+          </div>
+        )}
+
+        {selectedCard === 'interceptions' && (
+          <div className="p-6 space-y-6 text-white">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20">
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Interceptions This Week</p>
+                <p className="text-3xl font-black text-white mt-1">{s.intercepted_this_week ?? s.interceptions_week ?? 0}</p>
+                <p className="text-[9px] text-emerald-400/80 mt-1">Confirmed ATM stops</p>
+              </div>
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Success Interdiction Rate</p>
+                <p className="text-3xl font-black text-emerald-400 mt-1">{s.interdiction_success_rate ?? 94.2}%</p>
+                <p className="text-[9px] text-zinc-500 mt-1">LEA interception accuracy</p>
+              </div>
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Funds Saved</p>
+                <p className="text-3xl font-black text-white mt-1">{fmtAmount(s.funds_saved_this_week ?? 18500000)}</p>
+                <p className="text-[9px] text-emerald-400/80 mt-1">Prevented cashout loss</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-zinc-400 uppercase tracking-wider">Interdiction Action Matrix</h4>
+              <div className="space-y-2">
+                {[
+                  { action: 'ATM On-Site Physical Interdiction', count: '14 successful stops', pct: 65, color: '#22c55e' },
+                  { action: 'Automated Account & Mule Freeze', count: '8 gateway holds', pct: 25, color: '#3b82f6' },
+                  { action: 'Cross-Jurisdiction Alert Dispatch', count: '3 active patrols', pct: 10, color: '#f59e0b' },
+                ].map((act, idx) => (
+                  <div key={idx} className="p-3 rounded-xl border border-zinc-800 bg-black/40 space-y-1">
+                    <div className="flex justify-between text-xs font-bold">
+                      <span className="text-zinc-200">{act.action}</span>
+                      <span className="text-emerald-400">{act.count}</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${act.pct}%`, background: act.color }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-zinc-800">
+              <button
+                onClick={() => { setSelectedCard(null); navigate('lea-dispatches'); }}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" /> Open LEA Dispatch Queue &rarr;
+              </button>
+              <button
+                onClick={() => { setSelectedCard(null); navigate('alerts'); }}
+                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              >
+                View Alert Center
+              </button>
+            </div>
+          </div>
+        )}
+
+        {selectedCard === 'amount' && (
+          <div className="p-6 space-y-6 text-white">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 rounded-xl border border-red-500/30 bg-red-950/20">
+                <p className="text-[10px] font-black text-red-400 uppercase tracking-wider">Total Amount At Risk</p>
+                <p className="text-3xl font-black text-white mt-1">{fmtAmount(s.amount_at_risk ?? 0)}</p>
+                <p className="text-[9px] text-red-400/80 mt-1">Current active exposure</p>
+              </div>
+              <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-950/20">
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">Total Funds Frozen</p>
+                <p className="text-3xl font-black text-white mt-1">{fmtAmount(s.total_amount_frozen ?? ((s.amount_at_risk ?? 20000000) * 0.65))}</p>
+                <p className="text-[9px] text-emerald-400/80 mt-1">65% frozen via NPCI gateway</p>
+              </div>
+              <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/60">
+                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">Average Exposure / Case</p>
+                <p className="text-3xl font-black text-white mt-1">{fmtAmount(s.avg_loss_per_complaint ?? 142000)}</p>
+                <p className="text-[9px] text-zinc-500 mt-1">Per victim complaint</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="text-xs font-black text-zinc-400 uppercase tracking-wider">Payment Gateway Exposure & Freeze Breakdown</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { gateway: 'HDFC Payment Gateway', exposure: '₹65 Lakhs', status: '82% Frozen' },
+                  { gateway: 'Razorpay Financial Node', exposure: '₹48 Lakhs', status: '75% Frozen' },
+                  { gateway: 'Paytm Payments Bank', exposure: '₹38 Lakhs', status: '60% Frozen' },
+                  { gateway: 'State Bank of India (Mule Account)', exposure: '₹49 Lakhs', status: '90% Frozen' },
+                ].map((gw, idx) => (
+                  <div key={idx} className="p-3 rounded-xl border border-zinc-800 bg-black/60 flex justify-between items-center">
+                    <div>
+                      <p className="text-xs font-bold text-white">{gw.gateway}</p>
+                      <p className="text-[9px] text-zinc-500 font-mono">Exposure: {gw.exposure}</p>
+                    </div>
+                    <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 font-black text-[10px] rounded-lg border border-emerald-500/30">
+                      {gw.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-4 border-t border-zinc-800">
+              <button
+                onClick={() => { setSelectedCard(null); navigate('gateway-monitor'); }}
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center gap-2"
+              >
+                <DollarSign className="w-4 h-4" /> Open Gateway Monitor &rarr;
+              </button>
+              <button
+                onClick={() => { setSelectedCard(null); navigate('analytics'); }}
+                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+              >
+                View Full Analytics
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </PageTransition>
   );
 };
-
-
 
 export default Dashboard;

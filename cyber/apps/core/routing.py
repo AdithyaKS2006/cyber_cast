@@ -5,4 +5,5 @@ websocket_urlpatterns = [
     re_path(r'ws/dashboard/$', consumers.DashboardConsumer.as_asgi()),
     re_path(r'ws/predictions/$', consumers.PredictionAlertConsumer.as_asgi()),
     re_path(r'ws/notifications/$', consumers.NotificationConsumer.as_asgi()),
+    re_path(r'ws/freeze-ops/$', consumers.FreezeAlertConsumer.as_asgi()),
 ]

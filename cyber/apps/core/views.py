@@ -59,9 +59,8 @@ def health_check(request):
     
     # 3. ML models check
     try:
-        from apps.ml_engine.cashout_predictor import CashOutPredictor
-        predictor = CashOutPredictor()
-        predictor.load_models()
+        from apps.ml_engine.cashout_predictor import get_predictor_instance
+        predictor = get_predictor_instance()
         checks['checks']['ml_models'] = {
             'status': 'ok' if predictor.is_loaded else 'warning',
             'is_loaded': predictor.is_loaded
@@ -152,5 +151,19 @@ def integration_test_view(request):
             'endpoint': url or 'API Key authentication active',
             'verified_at': timezone.now().isoformat()
         }
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def system_config_view(request):
+    """
+    Returns system configuration and feature flags, e.g. DEMO_MODE.
+    """
+    from django.conf import settings
+    return Response({
+        'demo_mode': getattr(settings, 'DEMO_MODE', True),
+        'environment': getattr(settings, 'ENVIRONMENT', 'development'),
+        'version': '2.0.0'
     })
 

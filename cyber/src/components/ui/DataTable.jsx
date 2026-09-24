@@ -224,14 +224,14 @@ const DataTable = ({ columns, data, pageSize = 15, onRowClick, selectable = fals
                       />
                     </td>
                   )}
-                  {columns.map(col => {
-                    const cellVal = row[col.key];
-                    return (
-                      <td key={col.key} className="p-3 text-zinc-300 font-medium">
-                        {col.render ? col.render(cellVal, row) : cellVal}
-                      </td>
-                    );
-                  })}
+                    {columns.map(col => {
+                      const cellVal = row[col.key];
+                      return (
+                        <td key={col.key} className="p-3 text-zinc-300 font-medium">
+                          {col.render ? col.render(cellVal, row) : (typeof cellVal === 'object' && cellVal !== null ? JSON.stringify(cellVal) : String(cellVal ?? ''))}
+                        </td>
+                      );
+                    })}
                 </tr>
               );
             })}

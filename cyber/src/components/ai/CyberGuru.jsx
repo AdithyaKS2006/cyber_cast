@@ -86,9 +86,10 @@ const CyberGuru = () => {
           const systemPrompt = `You are CRIMECAST AI CO-PILOT, an expert law enforcement cybercrime & financial fraud investigator. Provide actionable analysis on mule accounts, UPI scam patterns, bank cash-out forecasting, and inter-agency coordination. Format responses cleanly with bold text, structured bullet points, and clear actionable steps.`;
           aiResponse = await callGemini(systemPrompt, `Context: ${contextAttached || 'General Cybercrime Intelligence'}\n\nQuery: ${txt}`);
         } catch (geminiErr) {
-          aiResponse = `### 🚨 CRIMECAST AI ADVISOR: STANDALONE MODE\n\n**Query:** ${txt}\n**Context:** ${contextAttached || 'Financial Fraud Telemetry'}\n\n**Investigative Analysis:**\n1. **Mule Account Traversal:** Trace transaction hops to identify terminal nodal accounts.\n2. **Bank Liaison Alert:** Dispatch automated freezing notice under Section 91 CrPC.\n3. **Geospatial Cash-Out Forecast:** High probability withdrawal zone identified near Nuh / Jamtara region.\n4. **Recommended Action:** Issue immediate hold instruction to nodal bank officer and notify local law enforcement.`;
+          aiResponse = `### 🚨 CRIMECAST AI ADVISOR: STANDALONE MODE\n\n**Query:** ${txt}\n**Context:** ${contextAttached || 'Financial Fraud Telemetry'}\n\n**Investigative Analysis:**\n1. **Mule Account Traversal:** Trace transaction hops to identify terminal nodal accounts.\n2. **Bank Liaison Directive:** Dispatch automated freezing notice under Section 106 & Section 94 BNSS 2023.\n3. **Geospatial Cash-Out Forecast:** High probability withdrawal zone identified near Nuh / Jamtara region.\n4. **Recommended Action:** Issue immediate hold instruction to nodal bank officer and notify local law enforcement under BSA 2023 standard.`;
         }
       }
+
       
       const cleanResponse = typeof aiResponse === 'string' ? aiResponse : (aiResponse?.text || JSON.stringify(aiResponse) || "Analysis complete.");
       setIsTyping(false);

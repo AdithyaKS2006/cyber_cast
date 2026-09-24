@@ -103,10 +103,7 @@ const TriageSidebar = ({ isOpen, onClose, onOpen, navigate }) => {
     const match = document.cookie.match(new RegExp('(^| )ws_token=([^;]+)')) || document.cookie.match(new RegExp('(^| )access_token=([^;]+)'));
     const token = match ? match[2] : (localStorage.getItem('access_token') || '');
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const defaultHost = (window.location.port === '3000' || window.location.port === '5173')
-      ? `${window.location.hostname}:8000`
-      : window.location.host;
-    const host = import.meta.env.VITE_WS_HOST || defaultHost;
+    const host = import.meta.env.VITE_WS_HOST || window.location.host;
     const wsUrl = token ? `${protocol}://${host}/ws/predictions/?token=${token}` : `${protocol}://${host}/ws/predictions/`;
 
     let ws;
@@ -177,7 +174,7 @@ const TriageSidebar = ({ isOpen, onClose, onOpen, navigate }) => {
 
   return (
     <div
-      className="w-72 flex-shrink-0 flex flex-col h-screen md:h-auto overflow-y-auto custom-scrollbar"
+      className="fixed md:relative right-0 top-16 md:top-0 bottom-0 z-40 bg-black/95 md:bg-transparent w-72 flex-shrink-0 flex flex-col h-[calc(100vh-4rem)] md:h-auto overflow-y-auto custom-scrollbar"
       style={{
         background: 'linear-gradient(180deg, rgba(0,0,0,0.92), rgba(5,5,5,0.97))',
         borderLeft: '1px solid rgba(249,115,22,0.12)',

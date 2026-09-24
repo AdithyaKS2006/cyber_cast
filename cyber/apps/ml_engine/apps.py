@@ -13,6 +13,8 @@ class MlEngineConfig(AppConfig):
         try:
             from .threat_report_ai import prewarm_ai_pipeline
             prewarm_ai_pipeline()
-        except ImportError:
+            from .cashout_predictor import get_predictor_instance
+            get_predictor_instance()
+        except Exception:
             pass
 

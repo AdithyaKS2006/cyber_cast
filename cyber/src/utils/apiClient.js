@@ -6,6 +6,13 @@
  * - Auto-logs out on 401
  */
 let isLoggingOut = false;
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function onTokenRefreshed(success) {
+  refreshSubscribers.forEach((resolve) => resolve(success));
+  refreshSubscribers = [];
+}
 
 export default async function apiClient(endpoint, options = {}) {
   const headers = { ...options.headers };
@@ -30,21 +37,71 @@ export default async function apiClient(endpoint, options = {}) {
   // Debug logging
   console.debug(`[apiClient] ${options.method || 'GET'} ${endpoint}`);
 
-  // Auto-logout on 401 (excluding initial auth check & auth endpoints to prevent redirect loops)
-  const isAuthEndpoint = endpoint.includes('/auth/') || endpoint.includes('/users/me/');
-  if (response.status === 401 && !isLoggingOut && !isAuthEndpoint) {
-    isLoggingOut = true;
-    fetch('/api/v1/auth/logout/', { method: 'DELETE', credentials: 'include' })
-      .finally(() => {
-        localStorage.removeItem('cyber_user');
-        if (window.location.pathname !== '/') {
-          window.location.href = '/';
+  // Auto-refresh on 401 before considering logout
+  const isAuthEndpoint = endpoint.includes('/auth/login/') || endpoint.includes('/auth/refresh/');
+  if (response.status === 401 && !isAuthEndpoint && !options._retry) {
+    if (isRefreshing) {
+      // Queue request while a refresh is in-flight
+      const success = await new Promise((resolve) => refreshSubscribers.push(resolve));
+      if (success) {
+        return apiClient(endpoint, { ...options, _retry: true });
+      }
+    } else {
+      isRefreshing = true;
+      try {
+        const refreshRes = await fetch('/api/v1/auth/refresh/', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (refreshRes.ok) {
+          isRefreshing = false;
+          onTokenRefreshed(true);
+          // Retry the failed request with renewed cookie
+          return apiClient(endpoint, { ...options, _retry: true });
+        } else {
+          isRefreshing = false;
+          onTokenRefreshed(false);
         }
-        isLoggingOut = false;
-      });
+      } catch (err) {
+        isRefreshing = false;
+        onTokenRefreshed(false);
+      }
+    }
+
+    // If refresh failed and endpoint wasn't public auth check, log out gracefully
+    if (!isLoggingOut && !endpoint.includes('/auth/')) {
+      isLoggingOut = true;
+      fetch('/api/v1/auth/logout/', { method: 'DELETE', credentials: 'include' })
+        .finally(() => {
+          localStorage.removeItem('cyber_user');
+          if (window.location.pathname !== '/' && window.location.pathname !== '/login') {
+            window.location.href = '/';
+          }
+          isLoggingOut = false;
+        });
+    }
   }
 
   return response;
+}
+
+// Proactive session keep-alive every 10 minutes
+if (typeof window !== 'undefined') {
+  setInterval(async () => {
+    try {
+      if (localStorage.getItem('cyber_user')) {
+        await fetch('/api/v1/auth/refresh/', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    } catch {
+      // Quiet background check
+    }
+  }, 10 * 60 * 1000);
 }
 
 apiClient.get = async (endpoint, options = {}) => {

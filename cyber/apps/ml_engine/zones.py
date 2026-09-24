@@ -152,10 +152,15 @@ def get_candidate_atms_for_zone(zone_id: int):
     d_code = "".join([c for c in d_name if c.isalnum()])[:3].upper() or "ATM"
 
     banks = ["SBI", "HDFC Bank", "ICICI Bank", "Punjab National Bank", "Axis Bank", "Bank of Baroda"]
-    streets = ["Main Market Branch", "Station Road", "Civil Lines Compound", "GT Road Junction", "Near District Court"]
+    streets = ["Main Market Branch", "Station Road", "Civil Lines Compound", "GT Road Junction", "Near District Court", "Commercial Complex"]
 
     atms = []
-    offsets = [(0.0035, 0.0021), (-0.0028, -0.0034), (0.0019, -0.0027)]
+    # 6 candidate ATMs: Cluster A (3 ATMs < 0.5km), Cluster B (2 ATMs < 0.8km), 1 outlier
+    offsets = [
+        (0.0035, 0.0021), (0.0038, 0.0024), (0.0032, 0.0019),  # Density Cluster 1
+        (-0.0055, -0.0048), (-0.0058, -0.0051),               # Density Cluster 2
+        (0.0120, -0.0150)                                      # Isolated Outlier
+    ]
     for idx, (lat_off, lon_off) in enumerate(offsets):
         bank = banks[idx % len(banks)]
         street = streets[idx % len(streets)]
@@ -171,7 +176,7 @@ def get_candidate_atms_for_zone(zone_id: int):
 def get_dbscan_micro_clusters(zone_id: int):
     """
     Computes dynamic GIS micro-hotspots (radius < 1.5 km) over candidate ATMs 
-    using DBSCAN density-based spatial clustering.
+    using DBSCAN density-based spatial clustering (min_samples=2).
     """
     from sklearn.cluster import DBSCAN
     import numpy as np
@@ -186,18 +191,18 @@ def get_dbscan_micro_clusters(zone_id: int):
     kms_per_radian = 6371.0
     epsilon = 1.5 / kms_per_radian
 
-    # Perform DBSCAN clustering
-    db = DBSCAN(eps=epsilon, min_samples=1, metric='haversine').fit(coords)
+    # Perform DBSCAN clustering with min_samples=2 for density-based grouping
+    db = DBSCAN(eps=epsilon, min_samples=2, metric='haversine').fit(coords)
     labels = db.labels_
 
     clusters = {}
     for idx, label in enumerate(labels):
-        if label not in clusters:
-            clusters[label] = []
-        clusters[label].append(atms[idx])
+        c_key = f"cluster_{label}" if label != -1 else f"isolated_{idx}"
+        clusters.setdefault(c_key, []).append(atms[idx])
 
     result_clusters = []
-    for cid, c_atms in clusters.items():
+    cluster_counter = 1
+    for c_key, c_atms in clusters.items():
         c_lats = [a["lat"] for a in c_atms]
         c_lons = [a["lon"] for a in c_atms]
         center_lat = round(float(np.mean(c_lats)), 4)
@@ -216,8 +221,12 @@ def get_dbscan_micro_clusters(zone_id: int):
         if radius_km == 0:
             radius_km = 0.35
 
+        is_density_cluster = not c_key.startswith("isolated_")
+        cluster_id = f"CLUSTER-{zone_id}-{cluster_counter}" if is_density_cluster else f"ATM-ISOLATED-{zone_id}-{cluster_counter}"
+        cluster_counter += 1
+
         result_clusters.append({
-            "cluster_id": f"CLUSTER-{zone_id}-{cid + 1}",
+            "cluster_id": cluster_id,
             "center_lat": center_lat,
             "center_lon": center_lon,
             "radius_km": radius_km,

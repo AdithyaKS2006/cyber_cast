@@ -38,9 +38,9 @@ const EmptyState = ({
       {Icon && <Icon className="w-7 h-7 text-orange-400 relative z-10" />}
     </div>
 
-    <h3 className="text-sm font-black text-white uppercase tracking-wider mb-2">{title}</h3>
+    <h3 className="text-sm font-black text-white uppercase tracking-wider mb-2">{typeof title === 'object' ? JSON.stringify(title) : String(title)}</h3>
     {message && (
-      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">{message}</p>
+      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">{typeof message === 'object' ? JSON.stringify(message) : String(message)}</p>
     )}
     {action && (
       <button

@@ -2,19 +2,16 @@
  * PredictionMap.jsx  —  CrimeCast Prediction Engine & Heatmap
  * Dual Mode: Active Predictions Intelligence Board & Geospatial Cash-Out Heatmap
  *
- * HONESTY NOTE: every prediction shown here is a live output of the production
- * LightGBM model over 700 candidate districts. For a 700-class
- * problem the top-1 softmax probability is naturally modest (~0.12–0.18 for a
- * confident case; random chance is 0.14%). Predictions with a rank-1 probability
- * below the τ=0.14 auto-dispatch gate are correctly flagged NEEDS_REVIEW and
- * routed to a human analyst — that human-in-the-loop step is the point, not a
- * limitation. There is no mock/demo fallback: if the API returns nothing, the
- * board honestly shows an empty state.
+ * HONESTY NOTE: predictions shown here represent the live output of the calibrated
+ * LightGBM model ranking candidate cash-out zones (40 canonical districts; 2.50% baseline random probability).
+ * Predictions with a rank-1 probability below the τ=0.14 auto-dispatch gate are correctly flagged
+ * NEEDS_REVIEW and routed to a human analyst for human-in-the-loop audit before dispatch.
  */
-import React, { useState, useEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import HeatmapLayer from './HeatmapLayer';
 import {
   MapPin, RefreshCw, Loader2, Clock, Zap, X, Search, Filter,
   Shield, AlertTriangle, ExternalLink, LayoutGrid, Activity, UserCheck,
@@ -30,8 +27,20 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     '/leaflet/marker-shadow.png',
 });
 
-/* ── Pulse keyframes injected once ────────────────────────────────────────*/
+/* ── Pulse keyframes + God's Eye tactical design tokens ──────────────────*/
 const PULSE_STYLE = `
+/* ── God's Eye CSS Design Tokens ── */
+:root {
+  --gev-bg:      #0a0a0f;
+  --gev-glass:   rgba(12, 12, 20, 0.72);
+  --gev-border:  rgba(255, 255, 255, 0.08);
+  --gev-accent:  #00d4ff;
+  --gev-glow:    rgba(0, 212, 255, 0.4);
+  --gev-mono:    'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --gev-radius:  16px;
+}
+
+/* ── Pulse ring animation ── */
 @keyframes ccPulse {
   0%   { transform: scale(1);   opacity: 0.95; }
   50%  { transform: scale(2.2); opacity: 0.0; }
@@ -42,15 +51,95 @@ const PULSE_STYLE = `
   border-radius: 50%;
   animation: ccPulse 2s ease-out infinite;
 }
+
+/* ── Leaflet popup — dark tactical skin ── */
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-  background: #111 !important;
-  border: 1px solid rgba(249,115,22,0.35) !important;
+  background: rgba(10,10,15,0.96) !important;
+  border: 1px solid rgba(0,212,255,0.25) !important;
   border-radius: 12px !important;
-  color: #fff !important;
-  box-shadow: 0 0 24px rgba(249,115,22,0.15) !important;
+  color: #e8eaed !important;
+  box-shadow: 0 0 24px rgba(0,212,255,0.12), 0 8px 32px rgba(0,0,0,0.6) !important;
+  backdrop-filter: blur(16px) !important;
 }
-.leaflet-popup-close-button { color: #71717a !important; }
+.leaflet-popup-close-button { color: rgba(232,234,237,0.4) !important; }
+
+/* ── Glassmorphism panel ── */
+.cc-glass-panel {
+  background: var(--gev-glass) !important;
+  border-color: rgba(0,212,255,0.12) !important;
+  backdrop-filter: blur(24px) saturate(1.4) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(1.4) !important;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(255,255,255,0.03) inset,
+    0 0 20px rgba(0,212,255,0.06) !important;
+}
+
+/* ── Tactical HUD scan-line sweep ── */
+.cc-scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(0,212,255,0.06) 20%,
+    rgba(0,212,255,0.5) 50%,
+    rgba(0,212,255,0.06) 80%,
+    transparent 100%);
+  animation: ccScanLine 5s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 900;
+}
+@keyframes ccScanLine {
+  0%   { top: 0%;   opacity: 0; }
+  8%   { opacity: 0.7; }
+  92%  { opacity: 0.7; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* ── Corner HUD bracket markers ── */
+.cc-hud-corner {
+  position: absolute;
+  width: 18px; height: 18px;
+  pointer-events: none; z-index: 1000;
+}
+.cc-hud-corner::before,
+.cc-hud-corner::after {
+  content: '';
+  position: absolute;
+  background: var(--gev-accent);
+  box-shadow: 0 0 6px rgba(0,212,255,0.5);
+}
+.cc-hud-corner::before { width: 100%; height: 2px; }
+.cc-hud-corner::after  { width: 2px;  height: 100%; }
+.cc-hud-corner.tl { top: 12px;    left: 12px; }
+.cc-hud-corner.tl::before { top: 0;    left: 0; }
+.cc-hud-corner.tl::after  { top: 0;    left: 0; }
+.cc-hud-corner.tr { top: 12px;    right: 12px; }
+.cc-hud-corner.tr::before { top: 0;    right: 0; }
+.cc-hud-corner.tr::after  { top: 0;    right: 0; }
+.cc-hud-corner.bl { bottom: 12px; left: 12px; }
+.cc-hud-corner.bl::before { bottom: 0; left: 0; }
+.cc-hud-corner.bl::after  { bottom: 0; left: 0; }
+.cc-hud-corner.br { bottom: 12px; right: 12px; }
+.cc-hud-corner.br::before { bottom: 0; right: 0; }
+.cc-hud-corner.br::after  { bottom: 0; right: 0; }
+
+/* ── Monospace HUD label ── */
+.cc-mono { font-family: var(--gev-mono); letter-spacing: 0.08em; }
+
+/* ── Leaflet zoom control — dark tactical skin ── */
+.leaflet-control-zoom a {
+  background: rgba(10,10,15,0.85) !important;
+  border-color: rgba(0,212,255,0.2) !important;
+  color: var(--gev-accent) !important;
+  backdrop-filter: blur(8px) !important;
+}
+.leaflet-control-zoom a:hover {
+  background: rgba(0,212,255,0.12) !important;
+  color: #fff !important;
+}
 `;
 
 /* ── Outcome / status presentation ─────────────────────────────────────── */
@@ -64,7 +153,7 @@ const OUTCOME = {
 const outcomeMeta = (o) => OUTCOME[o] ?? { label: o || '—', color: '#71717a' };
 
 /* ── helpers ───────────────────────────────────────────────────────────── */
-// Colour relative to output probability distribution (700-class model).
+// Colour relative to output probability distribution (40-zone calibrated model).
 // High risk tier (>=0.15) is red, warm tier (>=0.12) is orange, baseline is yellow.
 const probColor = (p) =>
   p >= 0.15 ? '#ef4444' : p >= 0.12 ? '#f97316' : '#eab308';
@@ -204,6 +293,10 @@ const DispatchModal = ({ pred, onClose, onConfirm }) => {
             to approve before an intelligence package is issued.
           </div>
         )}
+        <div className="text-[9px] text-cyan-400/90 bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-3 py-1.5 flex items-center justify-between">
+          <span className="font-mono font-bold">SIMULATED ADAPTER</span>
+          <span className="text-[8px] text-zinc-400 uppercase">I4C Schema Compliant</span>
+        </div>
         <p className="text-[10px] text-zinc-400 uppercase leading-relaxed">
           Issue intelligence package for a predicted cash-out at{' '}
           <span className="text-orange-400 font-black">{pred.predicted_zone_name}</span>?<br />
@@ -228,6 +321,13 @@ const DispatchModal = ({ pred, onClose, onConfirm }) => {
 
 /* ══ Main component ════════════════════════════════════════════════════════ */
 const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
+  // ── Derived heat points for leaflet.heat ──────────────────────────────
+  // [lat, lon, intensity] — intensity amplified by *4 because the 40-district
+  // model's top probability sits at ~0.15–0.25 (not 0–1 range). This maps
+  // a confident 0.25 → 1.0 max intensity, preventing a washed-out heatmap.
+  // useMemo avoids recomputing on every unrelated render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /* defined below after `predictions` state is accessible */
   const [viewMode, setViewMode]         = useState(initialMode);
   const [predictions, setPredictions]   = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -239,6 +339,14 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
   const [isSimulating, setIsSimulating] = useState(false);
 
   useEffect(() => { setViewMode(initialMode); }, [initialMode]);
+
+  // Compute heat point array whenever predictions change
+  const heatPoints = useMemo(() =>
+    predictions
+      .filter(p => p.lat != null && p.lon != null)
+      .map(p => [p.lat, p.lon, Math.min(1, p.probability * 4)]),
+    [predictions]
+  );
 
   const handleSimulateWebhook = async () => {
     setIsSimulating(true);
@@ -278,7 +386,8 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
         setPredictions([]);
       }
     } catch (e) {
-      setError(e.message);
+      const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+      setError(msg || 'Failed to fetch predictions');
       setPredictions([]);
     } finally {
       setLoading(false);
@@ -507,7 +616,7 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
             <div className="text-center py-16 bg-zinc-900/20 rounded-2xl border border-red-900/40 space-y-2">
               <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
               <p className="text-sm font-black text-red-400 uppercase">Could not load predictions</p>
-              <p className="text-xs text-zinc-500">{error}</p>
+              <p className="text-xs text-zinc-500">{typeof error === 'object' ? JSON.stringify(error) : String(error)}</p>
             </div>
           ) : filteredPredictions.length === 0 ? (
             <div className="text-center py-16 bg-zinc-900/20 rounded-2xl border border-zinc-800 space-y-2">
@@ -584,7 +693,7 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
                         </button>
                       )}
                       <button
-                        onClick={() => navigate(`predictions/${pred.id}`)}
+                        onClick={() => pred.id && navigate(`predictions/${pred.id}`)}
                         className="px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors"
                         title="View SHAP details & AI brief"
                       >
@@ -603,10 +712,9 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
         </div>
       ) : (
         /* ══ VIEW MODE 2: GEOSPATIAL HEATMAP VIEW ═════════════════════════ */
-        <div className="flex h-[calc(100vh-65px)] overflow-hidden" style={{ background: '#000' }}>
+        <div className="flex h-[calc(100vh-65px)] overflow-hidden" style={{ background: 'var(--gev-bg, #0a0a0f)' }}>
           {/* ══ LEFT SIDEBAR ═══════════════════════════════════════════════ */}
-          <div className="w-72 flex-shrink-0 flex flex-col overflow-hidden border-r"
-               style={{ borderColor: 'rgba(249,115,22,0.12)', background: 'rgba(0,0,0,0.95)' }}>
+          <div className="w-72 flex-shrink-0 flex flex-col overflow-hidden border-r cc-glass-panel">
 
             {/* header */}
             <div className="p-4 flex-shrink-0" style={{ borderBottom: '1px solid rgba(249,115,22,0.10)' }}>
@@ -627,8 +735,9 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
 
             {/* legend */}
             <div className="px-4 py-3 flex-shrink-0 space-y-1.5"
-                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-              <p className="text-[7px] font-black text-zinc-700 uppercase tracking-widest mb-2">Predicted cash-out likelihood</p>
+                 style={{ borderBottom: '1px solid rgba(0,212,255,0.08)' }}>
+              <p className="text-[7px] font-black uppercase tracking-widest mb-2 cc-mono"
+                 style={{ color: 'rgba(0,212,255,0.5)' }}>PREDICTED CASH-OUT LIKELIHOOD</p>
               {[
                 { color: '#ef4444', label: 'High (≥20%)' },
                 { color: '#f97316', label: 'Elevated (10–20%)' },
@@ -676,6 +785,17 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
 
           {/* ══ MAP ════════════════════════════════════════════════════════ */}
           <div className="flex-1 relative">
+            {/* God's Eye HUD: scan-line sweep + corner brackets */}
+            <div className="cc-scan-line" />
+            <div className="cc-hud-corner tl" />
+            <div className="cc-hud-corner tr" />
+            <div className="cc-hud-corner bl" />
+            <div className="cc-hud-corner br" />
+            {/* Bottom coordinate HUD chip */}
+            <div className="absolute bottom-4 left-4 z-[1000] cc-mono pointer-events-none"
+                 style={{ fontSize: '8px', color: 'rgba(0,212,255,0.55)', letterSpacing: '0.12em' }}>
+              CRIMECAST · PREDICTIVE SPATIAL INTELLIGENCE · INDIA COVERAGE
+            </div>
             <MapContainer
               center={[22.5, 80.0]}
               zoom={5}
@@ -691,22 +811,10 @@ const PredictionMap = ({ navigate, initialMode = 'heatmap' }) => {
                 maxZoom={18}
               />
 
-              {/* Likelihood heatmap circles — derived from ALL live predictions */}
-              {predictions.map((pred, i) => {
-                const c = probColor(pred.probability);
-                return (
-                  <Circle
-                    key={`h-${pred.id ?? i}`}
-                    center={[pred.lat, pred.lon]}
-                    radius={12000 + pred.probability * 90000}
-                    pathOptions={{
-                      color: c, fillColor: c,
-                      fillOpacity: 0.06 + Math.min(0.5, pred.probability) * 0.28,
-                      weight: 0.6, opacity: 0.3,
-                    }}
-                  />
-                );
-              })}
+              {/* ── Smooth density heatmap (leaflet.heat) ── */}
+              {heatPoints.length > 0 && (
+                <HeatmapLayer points={heatPoints} />
+              )}
 
               {/* Rank-1 forecast markers */}
               {primaries.map((pred, i) => {

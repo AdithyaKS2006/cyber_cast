@@ -16,7 +16,7 @@ Although live production gateways operate in a restricted network environment re
 ## 2. Payload Schema 1: Bank & ATM Fund Freeze Payload
 **Specification Name:** `I4C-NCRP-FUND-FREEZE-v2.1`  
 **Target Gateways:** Bank Cyber Cells, NPCI Switch Gateways, Payment Aggregators  
-**Legal / Statutory Basis:** Section 91 CrPC / Section 94 BNSS (Notice to Produce Documents / Freeze Property)
+**Legal / Statutory Basis:** Section 106 & Section 94 Bharatiya Nagarik Suraksha Sanhita (BNSS), 2023 / Section 63 BSA 2023 / DPDP Act 2023 Sec 4(d)
 
 | CrimeCast Internal Field | CFCFRMS / NCRP Field Name | Data Type | Source & Mandate Description |
 | :--- | :--- | :--- | :--- |
@@ -28,7 +28,9 @@ Although live production gateways operate in a restricted network environment re
 | `complaint.fraud_amount` | `disputed_amount_inr` | Float / Decimal | Total defrauded amount subject to temporary lien / freeze order |
 | `prediction.predicted_zone_name` | `predicted_cashout_zone` | String | CrimeCast AI predicted physical cash-out district |
 | `prediction.eta_hours` | `eta_window_hours` | Integer | Predicted timeframe window prior to cash-out depletion |
-| Custom Action Code | `freeze_action` | Enum String | Standard Action Enum: `FREEZE_BENEFICIARY_ACCOUNT_SEC_91_CRPC` |
+| Custom Action Code | `freeze_action` | Enum String | Standard Action Enum: `FREEZE_BENEFICIARY_ACCOUNT_SEC_106_BNSS_2023` |
+| Standard Schema | `iso20022_xml` | String XML | Full ISO 20022 camt.056.001.08 XML interdiction document |
+
 
 ---
 
@@ -73,8 +75,9 @@ Although live production gateways operate in a restricted network environment re
     "beneficiary_account": "3849102948102",
     "utr_rrn_reference": "UTR2026082699120",
     "disputed_amount_inr": 250000.00,
-    "freeze_action": "FREEZE_BENEFICIARY_ACCOUNT_SEC_91_CRPC",
+    "freeze_action": "FREEZE_BENEFICIARY_ACCOUNT_SEC_106_BNSS_2023",
     "predicted_cashout_zone": "Jamtara",
+
     "eta_window_hours": 3
   }
 }

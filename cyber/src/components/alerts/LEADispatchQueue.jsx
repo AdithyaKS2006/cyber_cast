@@ -37,7 +37,7 @@ const DispatchCard = ({ dispatch, onAck, onOutcome, idx }) => {
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[9px] font-black text-emerald-400 uppercase tracking-wide">
-            {dispatch.complaint_number ?? `PKG-${dispatch.package}`}
+            {typeof dispatch.complaint_number === 'object' ? JSON.stringify(dispatch.complaint_number) : String(dispatch.complaint_number ?? `PKG-${typeof dispatch.package === 'object' ? JSON.stringify(dispatch.package) : (dispatch.package ?? '')}`)}
           </p>
           <p className="text-xl font-black text-white">
             ₹{Number(dispatch.fraud_amount ?? 0).toLocaleString('en-IN')}
@@ -55,13 +55,13 @@ const DispatchCard = ({ dispatch, onAck, onOutcome, idx }) => {
         <div>
           <p className="text-[8px] text-zinc-600 font-bold uppercase mb-0.5">Target District</p>
           <p className="text-[11px] font-black text-white leading-tight">
-            {dispatch.target_district}
+            {typeof dispatch.target_district === 'object' && dispatch.target_district !== null ? (dispatch.target_district.name || JSON.stringify(dispatch.target_district)) : String(dispatch.target_district ?? '—')}
           </p>
         </div>
         <div className="text-right">
           <p className="text-[8px] text-zinc-600 font-bold uppercase mb-0.5">Predicted Zone</p>
           <p className="text-[11px] font-black text-zinc-300 leading-none">
-            {dispatch.predicted_zone_name ?? '—'}
+            {typeof dispatch.predicted_zone_name === 'object' && dispatch.predicted_zone_name !== null ? (dispatch.predicted_zone_name.name || JSON.stringify(dispatch.predicted_zone_name)) : String(dispatch.predicted_zone_name ?? '—')}
           </p>
         </div>
       </div>
@@ -134,7 +134,8 @@ const LEADispatchQueue = () => {
         setError(`Server returned ${res.status}`);
       }
     } catch (err) {
-      setError(err.message);
+      const msg = typeof err === 'object' ? (err.message || JSON.stringify(err)) : String(err);
+      setError(msg || 'Failed to fetch dispatches');
     } finally {
       setLoading(false);
     }
@@ -147,7 +148,8 @@ const LEADispatchQueue = () => {
       await apiClient(`/api/v1/predictions/lea-dispatches/${dispatch.id}/acknowledge/`, { method: 'POST' });
       setDispatches(prev => prev.map(d => d.id === dispatch.id ? { ...d, status: 'ACKNOWLEDGED', acknowledged_at: new Date().toISOString() } : d));
     } catch (err) {
-      alert("Failed to acknowledge: " + err.message);
+      const msg = typeof err === 'object' ? (err.message || JSON.stringify(err)) : String(err);
+      alert("Failed to acknowledge: " + msg);
     }
   };
 
@@ -160,7 +162,8 @@ const LEADispatchQueue = () => {
       });
       setDispatches(prev => prev.map(d => d.id === dispatch.id ? { ...d, status: 'RESOLVED' } : d));
     } catch (err) {
-      alert("Failed to update outcome: " + err.message);
+      const msg = typeof err === 'object' ? (err.message || JSON.stringify(err)) : String(err);
+      alert("Failed to update outcome: " + msg);
     }
   };
 
@@ -213,7 +216,7 @@ const LEADispatchQueue = () => {
             style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)' }}
           >
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-            <span>Could not load dispatches. {error}</span>
+            <span>Could not load dispatches. {typeof error === 'object' ? JSON.stringify(error) : String(error)}</span>
           </motion.div>
         )}
 

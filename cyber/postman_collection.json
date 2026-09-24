@@ -1,0 +1,112 @@
+{
+  "info": {
+    "_postman_id": "c8f1e2d3-4a5b-6c7d-8e9f-0a1b2c3d4e5f",
+    "name": "CrimeCast SIH 2026 API Test Suite",
+    "description": "End-to-end API collection for CrimeCast PS 26184 demonstrations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"analyst_demo\",\n  \"password\": \"DemoPassword123!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/login/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "auth", "login", ""]
+        }
+      }
+    },
+    {
+      "name": "2. Complaints - Submit New Complaint",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"victim_name\": \"Aditya Sharma\",\n  \"victim_phone\": \"+919876543210\",\n  \"victim_district\": \"New Delhi\",\n  \"victim_state\": \"Delhi\",\n  \"victim_pincode\": \"110001\",\n  \"fraud_amount\": 250000.00,\n  \"fraud_method\": \"UPI\",\n  \"fraud_timestamp\": \"2026-09-04T10:00:00Z\",\n  \"narrative_text\": \"Victim received phishing link claiming to be electricity bill update via UPI transfer.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/complaints/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "complaints", ""]
+        }
+      }
+    },
+    {
+      "name": "3. Predictions - List Predictions",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/predictions/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "predictions", ""]
+        }
+      }
+    },
+    {
+      "name": "4. Predictions - Heatmap Geospatial Data",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/predictions/data/heatmap/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "predictions", "data", "heatmap", ""]
+        }
+      }
+    },
+    {
+      "name": "5. Dispatch - Dispatch Intelligence Package (HITL Approved)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"analyst_approved\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/predictions/{{prediction_id}}/dispatch/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "predictions", "{{prediction_id}}", "dispatch", ""]
+        }
+      }
+    },
+    {
+      "name": "6. Analytics - Model Metrics & Baselines",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/predictions/data/model-metrics/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "predictions", "data", "model-metrics", ""]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "prediction_id",
+      "value": "REPLACE_WITH_PREDICTION_UUID",
+      "type": "string"
+    }
+  ]
+}

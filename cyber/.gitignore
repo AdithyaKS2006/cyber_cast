@@ -3,4 +3,5 @@ venv/
 .venv/
 __pycache__/
 hf_cache/
-
+*.sqlite3-wal
+*.sqlite3-shm

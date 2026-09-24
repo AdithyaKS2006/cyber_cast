@@ -151,7 +151,8 @@ const ComplaintsDashboard = ({ navigate }) => {
       const data = await res.json();
       setComplaints(Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : []));
     } catch (e) {
-      setError(e.message);
+      const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+      setError(msg || 'Failed to fetch complaints');
     } finally {
       setLoading(false);
     }
@@ -275,7 +276,7 @@ const ComplaintsDashboard = ({ navigate }) => {
                   : complaints.map((c, idx) => (
                     <tr
                       key={c.id}
-                      onClick={() => navigate(`complaints/${c.id}`)}
+                      onClick={() => c.id && navigate(`complaints/${c.id}`)}
                       className="cursor-pointer transition-colors hover:bg-orange-500/[0.04]
                                  active:bg-orange-500/10 group touch-feedback"
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
@@ -294,7 +295,7 @@ const ComplaintsDashboard = ({ navigate }) => {
                         {formatAmount(c.fraud_amount)}
                       </td>
                       <td className="hidden md:table-cell px-4 py-3 text-[10px] text-zinc-400 uppercase font-bold">
-                        {c.fraud_method}
+                        {typeof c.fraud_method === 'object' && c.fraud_method !== null ? (c.fraud_method.name || JSON.stringify(c.fraud_method)) : String(c.fraud_method || '—')}
                       </td>
                       <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                       <td className="hidden sm:table-cell px-4 py-3"><PriorityBadge priority={c.priority} /></td>

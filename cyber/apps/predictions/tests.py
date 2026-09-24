@@ -131,18 +131,26 @@ class CashOutPredictorTest(TestCase):
         self.assertGreater(total, 0.0, "At least some probability mass must be present")
         self.assertLessEqual(total, 1.01, "Total probability cannot exceed 1.0")
 
-    def test_fallback_gives_deterministic_results_for_same_input(self):
-        """Fallback (when models absent) must not use pure random — same input → consistent output."""
-        from apps.ml_engine.cashout_predictor import CashOutPredictor
+    def test_prediction_is_deterministic_and_raises_when_unloaded(self):
+        """Predictor must produce consistent results for identical inputs when loaded, or raise RuntimeError when unloaded."""
+        from apps.ml_engine.cashout_predictor import get_predictor_instance, CashOutPredictor
         import numpy as np
-        predictor = CashOutPredictor()
-        predictor.is_loaded = False  # Force fallback path
+        
+        predictor = get_predictor_instance()
         features = np.ones(38, dtype=np.float32) * 0.5
-        result1 = predictor.predict(features)
-        result2 = predictor.predict(features)
-        zones1 = [z['zone_name'] for z in result1]
-        zones2 = [z['zone_name'] for z in result2]
-        self.assertEqual(zones1, zones2, "Fallback must be deterministic for same input features")
+        
+        if predictor.is_loaded:
+            result1 = predictor.predict(features)
+            result2 = predictor.predict(features)
+            zones1 = [z['zone_name'] for z in result1]
+            zones2 = [z['zone_name'] for z in result2]
+            self.assertEqual(zones1, zones2, "Predictor must be deterministic for identical input features")
+        else:
+            unloaded_predictor = CashOutPredictor()
+            unloaded_predictor.is_loaded = False
+            unloaded_predictor.lgbm_model = None
+            with self.assertRaises(RuntimeError):
+                unloaded_predictor.predict(features)
 
 
 class PredictionAPIAuthTest(APITestCase):

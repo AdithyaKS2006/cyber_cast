@@ -3,22 +3,42 @@ import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 import AppLayout from './components/navigation/AppLayout';
 import LandingPage from './components/pages/LandingPage';
-import LoginModal from './components/auth/LoginModal';
-import RegisterModal from './components/auth/RegisterModal';
 import { LoadingScreen } from './components/ui/Common';
-import { ROLES, INITIAL_NOTIFICATIONS } from './constants';
+import { INITIAL_NOTIFICATIONS } from './constants';
 import CookieConsent from './components/ui/CookieConsent';
 import NotificationCenter from './components/ui/NotificationCenter';
+import DemoControlPanel from './components/demo/DemoControlPanel';
 import { wsManager } from './utils/websocketManager';
 import apiClient from './utils/apiClient';
 import ErrorBoundary from './components/ui/ErrorBoundary';
+
+const normalizeUser = (userData) => {
+  if (!userData) return null;
+  let roleStr = typeof userData.role === 'object' && userData.role !== null
+    ? (userData.role.name || userData.role.title || JSON.stringify(userData.role))
+    : String(userData.role || 'operator');
+  roleStr = roleStr.charAt(0).toUpperCase() + roleStr.slice(1).toLowerCase();
+
+  let nameStr = userData.name || userData.full_name ||
+    `${userData.first_name || ''} ${userData.last_name || ''}`.trim() ||
+    userData.username || 'Operator';
+  if (typeof nameStr === 'object' && nameStr !== null) nameStr = JSON.stringify(nameStr);
+
+  let devStr = userData.current_device;
+  if (typeof devStr === 'object' && devStr !== null) devStr = JSON.stringify(devStr);
+
+  return {
+    ...userData,
+    name: String(nameStr),
+    role: String(roleStr),
+    current_device: devStr ? String(devStr) : undefined,
+  };
+};
 
 const App = () => {
   // --- Auth & Session ---
   const [user, setUser] = useState(null); // Never persisted to localStorage — re-hydrated from API on load
   const [activePage, setActivePage] = useState(() => JSON.parse(localStorage.getItem('cyber_page')) || 'landing');
-  const [isLoginOpen, setLoginOpen] = useState(false);
-  const [isRegisterOpen, setRegisterOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // --- UI State ---
@@ -27,7 +47,7 @@ const App = () => {
   const [isTriageOpen, setTriageOpen] = useState(false);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
 
-  // --- NLQ State (Query & Results moved to NLQOverlay) ---
+  // --- NLQ State ---
   const [isNLQOpen, setNLQOpen] = useState(false);
   const [isNotificationCenterOpen, setNotificationCenterOpen] = useState(false);
 
@@ -71,39 +91,19 @@ const App = () => {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Re-hydrate session from backend API on page load (not from localStorage)
-  // This ensures the role/permissions are always authoritative from the server.
+  // Re-hydrate session from backend API on page load
   useEffect(() => {
     const verifySession = async () => {
-      // Avoid making endpoint call if no auth cookies exist to prevent unauthenticated 401 console noise
-      const hasAuthCookie = document.cookie.includes('access_token') || document.cookie.includes('sessionid');
-      if (!hasAuthCookie) {
-        setUser(null);
-        setActivePage('landing');
-        setIsLoading(false);
-        return;
-      }
-
       try {
         const res = await apiClient('/api/v1/users/me/', { method: 'GET' });
         if (res.ok) {
           const userData = await res.json();
-          setUser({
-            ...userData,
-            name: userData.full_name ||
-                  `${userData.first_name || ''} ${userData.last_name || ''}`.trim() ||
-                  userData.username || 'Operator',
-            role: userData.role
-              ? userData.role.charAt(0).toUpperCase() + userData.role.slice(1).toLowerCase()
-              : userData.role,
-          });
+          setUser(normalizeUser(userData));
         } else {
           setUser(null);
-          setActivePage('landing');
         }
-      } catch {
+      } catch (err) {
         setUser(null);
-        setActivePage('landing');
       } finally {
         setIsLoading(false);
       }
@@ -113,21 +113,9 @@ const App = () => {
 
   // Handlers
   const handleLogin = useCallback((userData) => {
-    const normalizedUser = {
-      ...userData,
-      name: userData.full_name ||
-            `${userData.first_name || ''} ${userData.last_name || ''}`.trim() ||
-            userData.username ||
-            'Operator',
-      role: userData.role
-        ? userData.role.charAt(0).toUpperCase() + userData.role.slice(1).toLowerCase()
-        : userData.role,
-    };
+    const normalizedUser = normalizeUser(userData);
     setUser(normalizedUser);
-    setLoginOpen(false);
-    setRegisterOpen(false);
-    const defaultPage = 'predictions/heatmap';
-    setActivePage(defaultPage);
+    setActivePage('predictions/heatmap');
     wsManager.initialize();
     toast.success(`Access granted: ${normalizedUser.role}`);
   }, []);
@@ -158,18 +146,7 @@ const App = () => {
   }, [markAllAsRead]);
 
   const handleUpdateUser = useCallback((updatedUser) => {
-    const normalizedUser = {
-      ...updatedUser,
-      name: updatedUser.full_name ||
-            `${updatedUser.first_name || ''} ${updatedUser.last_name || ''}`.trim() ||
-            updatedUser.username ||
-            'Operator',
-      role: updatedUser.role
-        ? updatedUser.role.charAt(0).toUpperCase() + updatedUser.role.slice(1).toLowerCase()
-        : updatedUser.role,
-    };
-    setUser(normalizedUser);
-    // Note: user is NOT written to localStorage — re-hydrated from API on next page load
+    setUser(normalizeUser(updatedUser));
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -181,9 +158,9 @@ const App = () => {
       wsManager.initialize();
     }
     return () => {
-      if (user) wsManager.disconnectAll();
+      wsManager.disconnectAll();
     };
-  }, []); // Run once on mount
+  }, [user]);
 
   if (isLoading) return <LoadingScreen />;
 
@@ -199,6 +176,8 @@ const App = () => {
       </>
     );
   }
+
+  const isDemoActive = import.meta.env.DEV || (typeof window !== 'undefined' && window.location.search.includes('demo=true'));
 
   return (
     <>
@@ -231,6 +210,7 @@ const App = () => {
         setNotifications={setNotifications}
         navigate={navigate}
       />
+      {isDemoActive && <DemoControlPanel />}
     </>
   );
 };

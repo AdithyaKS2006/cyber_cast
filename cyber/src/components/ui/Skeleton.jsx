@@ -17,12 +17,12 @@ const base = {
 };
 
 /* ── Primitive ─────────────────────────────────────────────────────── */
-const Block = ({ w = '100%', h = 16, r = 8, style = {} }) => (
-  <div style={{ ...base, width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />
+const Block = ({ w = '100%', h = 16, r = 8, className = '', style = {} }) => (
+  <div className={className} style={{ ...base, width: w, height: h, borderRadius: r, flexShrink: 0, ...style }} />
 );
 
-const Circle = ({ size = 40 }) => (
-  <div style={{ ...base, width: size, height: size, borderRadius: '50%', flexShrink: 0 }} />
+const Circle = ({ size = 40, className = '' }) => (
+  <div className={className} style={{ ...base, width: size, height: size, borderRadius: '50%', flexShrink: 0 }} />
 );
 
 /* ── Stat Card ─────────────────────────────────────────────────────── */
@@ -62,8 +62,8 @@ const Text = ({ lines = 3, className = '' }) => (
 );
 
 /* ── Full-width block ──────────────────────────────────────────────── */
-const FullBlock = ({ h = 120 }) => (
-  <Block w="100%" h={h} r={16} />
+const FullBlock = ({ h = 120, className = '' }) => (
+  <Block w="100%" h={h} r={16} className={className} />
 );
 
 /* ── Alert Card ────────────────────────────────────────────────────── */
@@ -88,5 +88,15 @@ const AlertCard = () => (
   </div>
 );
 
-export const Skeleton = { Block, Circle, Card, Row, Text, FullBlock, AlertCard };
-export default Skeleton;
+const SkeletonComponent = (props) => <Block {...props} />;
+SkeletonComponent.Block = Block;
+SkeletonComponent.Circle = Circle;
+SkeletonComponent.Card = Card;
+SkeletonComponent.Row = Row;
+SkeletonComponent.Text = Text;
+SkeletonComponent.FullBlock = FullBlock;
+SkeletonComponent.AlertCard = AlertCard;
+
+export const Skeleton = SkeletonComponent;
+export default SkeletonComponent;
+

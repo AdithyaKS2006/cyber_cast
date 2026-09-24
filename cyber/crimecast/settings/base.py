@@ -16,7 +16,7 @@ if not _secret_key or _secret_key.startswith('django-insecure-'):
         _secret_key = _secrets.token_urlsafe(64)
 SECRET_KEY = _secret_key
 DEBUG = env.bool('DEBUG', default=False)
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1', 'testserver', 'crimecast.io', 'localhost:5173', '127.0.0.1:5173', 'localhost:3000', '127.0.0.1:3000'])
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -52,6 +52,9 @@ LOCAL_APPS = [
     'apps.complaints',
     'apps.predictions',
     'apps.dashboard',
+    'apps.ingest',
+    'apps.freeze',
+    'apps.graph',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -223,11 +226,11 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'user': '100000/day',
-        'anon': '100000/day',
-        'auth': '10000/min',
-        'upload': '2000/hour',
-        'bulk': '3000/hour',
+        'user': '1000/day',
+        'anon': '100/day',
+        'auth': '30/min',
+        'upload': '20/hour',
+        'bulk': '30/hour',
     },
 }
 
@@ -278,7 +281,7 @@ To authenticate via Swagger UI:
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -318,8 +321,8 @@ STORAGES = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# CORS — only allow known origins; never allow all in production
-CORS_ALLOW_ALL_ORIGINS = False
+# CORS — permissive defaults for demo/cloud deployment
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=True)
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
     'http://localhost:5173',
     'http://localhost:3000',
@@ -338,6 +341,12 @@ CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:5173',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://*.onrender.com',
+    'https://*.railway.app',
+    'https://*.ngrok-free.app',
+    'https://*.loca.lt',
 ])
 
 # ML Models paths
@@ -348,6 +357,15 @@ ML_TRAINING_DATA_DIR = BASE_DIR / 'ml_models' / 'training_data'
 VIRUSTOTAL_API_KEY = env('VIRUSTOTAL_API_KEY', default='')
 GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
 SHODAN_API_KEY = env('SHODAN_API_KEY', default='')
+
+# Webhook Ingestion Secrets
+WEBHOOK_SECRETS = env.dict('WEBHOOK_SECRETS', default={'NPCI': 'dev-secret-change-in-prod'})
+
+# I4C API Integration Settings
+I4C_MOCK_MODE = env.bool('I4C_MOCK_MODE', default=True)
+I4C_API_BASE_URL = env('I4C_API_BASE_URL', default='https://api.i4c.gov.in/v1')
+I4C_API_TOKEN = env('I4C_API_TOKEN', default='mock-token')
+NODAL_PING_MOCK_MODE = env.bool('NODAL_PING_MOCK_MODE', default=True)
 
 # WAF: Internal agent key — MUST be set in .env for production
 # Any request bearing X-Agent-Key: <this value> bypasses the WAF rate limiter.
@@ -468,3 +486,6 @@ CSP_FRAME_ANCESTORS = ("'none'",)
 # Dispatch delivery mode: 'SIMULATED' (dev/demo) or 'LIVE' (production CFCFRMS integration)
 
 DISPATCH_DELIVERY_MODE = os.environ.get('DISPATCH_DELIVERY_MODE', 'SIMULATED')
+
+# Demo Mode Flag
+DEMO_MODE = env.bool('DEMO_MODE', default=True)

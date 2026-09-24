@@ -40,6 +40,19 @@
       "support": 164.0
     }
   ],
+  "ablation_study": {
+    "7_signal_features_only": {
+      "top1_accuracy": 52.46,
+      "top3_accuracy": 80.9,
+      "top5_accuracy": 92.36
+    },
+    "38_full_features": {
+      "top1_accuracy": 52.15,
+      "top3_accuracy": 81.17,
+      "top5_accuracy": 92.36
+    },
+    "top5_accuracy_gain_pts": 0.0
+  },
   "feature_signal_breakdown": {
     "core_signal_features": [
       "fraud_method_encoded",

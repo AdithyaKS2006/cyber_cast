@@ -10,6 +10,7 @@ import { GlobalStyles } from '../ui/Common';
 import { Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { wsManager } from '../../utils/websocketManager';
+import FreezeCountdownBanner from '../ui/FreezeCountdownBanner';
 
 const AppLayout = ({
   user,
@@ -46,11 +47,8 @@ const AppLayout = ({
   const [wsStatus, setWsStatus] = React.useState('connected');
   useEffect(() => {
     const handleWsStatus = (e) => {
-      // Just keep track of the overall status based on events
-      if (e.detail.status === 'error' || e.detail.status === 'disconnected') {
-        setWsStatus('disconnected');
-      } else if (e.detail.status === 'connected') {
-        setWsStatus('connected');
+      if (e.detail?.status) {
+        setWsStatus(e.detail.status);
       }
     };
     window.addEventListener('ws:status', handleWsStatus);
@@ -134,11 +132,15 @@ const AppLayout = ({
           onToggleTheme={toggleTheme}
         />
 
+        {/* Global Freeze Interdiction Alert Banner */}
+        <FreezeCountdownBanner />
+
+        {/* Horizontal Workspace: Main Content (Left/Center) + Triage Alert Center (Right) */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
-          <main className="flex-1 flex flex-col min-w-0">
+          <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
             
             {/* Breadcrumbs & NLQ Quick bar */}
-            <div className="px-6 py-4 border-b border-zinc-800/60 bg-black/20 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-zinc-800/60 bg-black/20 flex items-center justify-between flex-shrink-0">
               <Breadcrumbs path={activePage} />
               <div className="flex items-center gap-4">
                  <div className="flex items-center gap-2 mr-2">
@@ -167,7 +169,7 @@ const AppLayout = ({
             {/* Main content scrollable with page transitions */}
             <div 
               ref={mainRef}
-              className="flex-1 p-6 overflow-y-auto custom-scrollbar relative"
+              className="flex-1 p-6 overflow-y-auto custom-scrollbar relative min-h-0"
             >
               <AnimatePresence mode="wait">
                 <motion.div 
@@ -176,7 +178,7 @@ const AppLayout = ({
                   animate={{ opacity: 1, y: 0 }} 
                   exit={{ opacity: 0, y: -8 }} 
                   transition={{ duration: 0.15 }}
-                  className="h-full"
+                  className="w-full min-h-full"
                 >
                   <PageRenderer activePage={activePage} user={user} navigate={navigate} onUpdateUser={onUpdateUser} />
                 </motion.div>
@@ -184,7 +186,7 @@ const AppLayout = ({
             </div>
           </main>
 
-          {/* Incident Triage Assistant */}
+          {/* Incident Triage Assistant (Right Sidebar) */}
           <TriageSidebar 
             isOpen={isTriageOpen} 
             onClose={() => setTriageOpen(false)} 

@@ -37,10 +37,12 @@ const ErrorState = ({
     </div>
 
     <h3 className="text-sm font-black text-white uppercase tracking-wider mb-2">
-      {message}
+      {typeof message === 'object' ? JSON.stringify(message) : String(message)}
     </h3>
     {detail && (
-      <p className="text-xs text-zinc-600 max-w-xs mb-1 leading-relaxed font-mono">{detail}</p>
+      <p className="text-xs text-zinc-600 max-w-xs mb-1 leading-relaxed font-mono">
+        {typeof detail === 'object' ? JSON.stringify(detail) : String(detail)}
+      </p>
     )}
     <p className="text-xs text-zinc-600 max-w-xs leading-relaxed">
       Check your connection or try again.

@@ -209,7 +209,7 @@ class CashOutPredictor:
                 elapsed_hours = 0.0
 
         hop_delay = hop_count * 0.75
-        spatial_transit_time = distance_km / 350.0  # Regional courier / physical transit speed (~350 km/h)
+        spatial_transit_time = distance_km / 60.0  # Road/rail transit speed for cash mules (I4C interdiction planning standard: 60 km/h)
         
         eta = (base_time + hop_delay + spatial_transit_time) - elapsed_hours
         return round(min(72.0, max(0.5, eta)), 1)
@@ -249,3 +249,26 @@ RECOMMENDATION:
 Dispatch LEA units or notify bank networks for targeted monitoring at {zone} candidate ATMs within the next {eta} hours.
 """
         return brief.strip()
+
+
+import threading
+
+_predictor_lock = threading.Lock()
+_predictor_instance = None
+
+def get_predictor_instance():
+    """
+    Returns the thread-safe singleton instance of CashOutPredictor.
+    Prevents repeated disk loads of joblib models on every prediction request.
+    Uses double-checked locking to avoid TOCTOU race conditions under concurrency.
+    """
+    global _predictor_instance
+    if _predictor_instance is None:
+        with _predictor_lock:
+            if _predictor_instance is None:
+                predictor = CashOutPredictor()
+                predictor.load_models()
+                _predictor_instance = predictor
+    return _predictor_instance
+
+

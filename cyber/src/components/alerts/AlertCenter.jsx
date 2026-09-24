@@ -57,6 +57,8 @@ const AlertCard = ({ alert, onAck, onDispatch, onFalse, idx }) => {
   const s     = STATUS[alert.status] ?? STATUS.SENT;
   const canAct   = alert.status === 'SENT';
   const isUrgent = prob >= 0.20 && critical;
+  const [showXml, setShowXml] = useState(false);
+  const xmlPayload = alert.iso20022_xml || alert.iso20022_payload || null;
 
   return (
     <motion.div
@@ -82,7 +84,7 @@ const AlertCard = ({ alert, onAck, onDispatch, onFalse, idx }) => {
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[9px] font-black text-orange-400 uppercase tracking-wide">
-            {alert.complaint_number ?? `ALT-${alert.id}`}
+            {typeof alert.complaint_number === 'object' ? JSON.stringify(alert.complaint_number) : String(alert.complaint_number ?? `ALT-${typeof alert.id === 'object' ? JSON.stringify(alert.id) : alert.id}`)}
           </p>
           <p className="text-xl font-black text-white">
             ₹{Number(alert.fraud_amount ?? 0).toLocaleString('en-IN')}
@@ -101,7 +103,7 @@ const AlertCard = ({ alert, onAck, onDispatch, onFalse, idx }) => {
         <div>
           <p className="text-[8px] text-zinc-600 font-bold uppercase mb-0.5">Predicted Zone</p>
           <p className="text-[11px] font-black text-white leading-tight">
-            {alert.predicted_zone_name ?? '—'}
+            {typeof alert.predicted_zone_name === 'object' && alert.predicted_zone_name !== null ? (alert.predicted_zone_name.name || JSON.stringify(alert.predicted_zone_name)) : String(alert.predicted_zone_name ?? '—')}
           </p>
         </div>
         <div className="text-right">
@@ -182,6 +184,32 @@ const AlertCard = ({ alert, onAck, onDispatch, onFalse, idx }) => {
         </div>
       )}
 
+      {xmlPayload && (
+        <div className="mt-2">
+          <button
+            onClick={() => setShowXml(!showXml)}
+            className="w-full text-left text-[9px] font-black uppercase text-zinc-500 hover:text-orange-400 transition-colors flex justify-between items-center"
+          >
+            <span>ISO 20022 camt.056 CBS Payload</span>
+            <span>{showXml ? 'Hide' : 'View'}</span>
+          </button>
+          <AnimatePresence>
+            {showXml && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-2 overflow-hidden"
+              >
+                <div className="bg-black/80 border border-zinc-800 p-3 rounded-lg overflow-x-auto text-[8px] font-mono text-zinc-400 max-h-40 overflow-y-auto custom-scrollbar">
+                  <pre>{xmlPayload}</pre>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       {alert.status === 'DISPATCHED' && (
         <div className="flex items-center gap-2 text-green-400">
           <CheckCircle className="w-4 h-4" />
@@ -234,7 +262,8 @@ const AlertCenter = ({ navigate }) => {
         setAlerts([]);
       }
     } catch (err) {
-      setError(err.message);
+      const msg = typeof err === 'object' ? (err.message || JSON.stringify(err)) : String(err);
+      setError(msg || 'Failed to fetch alerts');
       setAlerts([]);
     } finally {
       setLoading(false);
@@ -383,7 +412,7 @@ const AlertCenter = ({ navigate }) => {
             style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)' }}
           >
             <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-            <span>Could not load alerts. {error}</span>
+            <span>Could not load alerts. {typeof error === 'object' ? JSON.stringify(error) : String(error)}</span>
           </motion.div>
         )}
 

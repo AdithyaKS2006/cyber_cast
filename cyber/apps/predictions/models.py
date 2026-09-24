@@ -7,6 +7,7 @@ class CashOutPrediction(models.Model):
     OUTCOME_CHOICES = [
         ('PENDING', 'Pending'),
         ('NEEDS_REVIEW', 'Needs Review'),
+        ('DISPATCHED', 'Dispatched'),
         ('INTERCEPTED', 'Intercepted'),
         ('MISSED', 'Missed'),
         ('FALSE_ALARM', 'False Alarm'),
@@ -105,17 +106,87 @@ class BankAlert(models.Model):
     package = models.ForeignKey(IntelligencePackage, on_delete=models.CASCADE, related_name='bank_alerts')
     target_institution = models.CharField(max_length=255)
     status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='SENT')
+    iso20022_payload = models.TextField(blank=True, default='')
     sent_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'bank_alerts'
 
+    def _generate_camt056_xml(self):
+        from datetime import datetime, timezone
+        complaint = getattr(self.package, 'complaint', None)
+        prediction = getattr(self.package, 'prediction', None)
+        hops = list(complaint.transaction_hops.all()) if complaint else []
+        msg_id = f"CC-CAMT056-{self.id}"
+        cre_dt_tm = self.sent_at.isoformat() if self.sent_at else datetime.now(timezone.utc).isoformat()
+        ncrp_ref = complaint.complaint_number if complaint else "NCRP-UNKNOWN"
+        amount = f"{float(complaint.fraud_amount):.2f}" if (complaint and complaint.fraud_amount) else "0.00"
+        first_hop = hops[0] if hops else None
+        target_ifsc = getattr(first_hop, 'to_ifsc', 'UNKNOWN_IFSC') if first_hop else "UNKNOWN_IFSC"
+        target_acc = getattr(first_hop, 'to_account', 'UNKNOWN_ACC') if first_hop else "UNKNOWN_ACC"
+        orig_instr_id = getattr(first_hop, 'transaction_id', f"UTR-{ncrp_ref}-01") if first_hop else f"UTR-{ncrp_ref}-01"
+
+        return f"""<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.056.001.08"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <FIToFIPmntCxlReq>
+    <GrpHdr>
+      <MsgId>{msg_id}</MsgId>
+      <CreDtTm>{cre_dt_tm}</CreDtTm>
+      <NbOfTxs>1</NbOfTxs>
+      <CtrlSum>{amount}</CtrlSum>
+      <InstgAgt>
+        <FinInstnId>
+          <ClrSysMmbId>
+            <ClrSysId><Cd>IN-I4C</Cd></ClrSysId>
+            <MmbId>CRIMECAST-INTERCEPT-GATEWAY</MmbId>
+          </ClrSysMmbId>
+          <Nm>Indian Cyber Crime Coordination Centre (I4C)</Nm>
+        </FinInstnId>
+      </InstgAgt>
+      <InstdAgt>
+        <FinInstnId>
+          <ClrSysMmbId>
+            <ClrSysId><Cd>IN-IFSC</Cd></ClrSysId>
+            <MmbId>{target_ifsc}</MmbId>
+          </ClrSysMmbId>
+          <Nm>{self.target_institution}</Nm>
+        </FinInstnId>
+      </InstdAgt>
+    </GrpHdr>
+    <Undrlyg>
+      <TxInf>
+        <CxlId>{self.id}</CxlId>
+        <OrgnlGrpInf>
+          <OrgnlMsgId>{ncrp_ref}</OrgnlMsgId>
+          <OrgnlMsgNmId>pacs.008.001.08</OrgnlMsgNmId>
+        </OrgnlGrpInf>
+        <OrgnlInstrId>{orig_instr_id}</OrgnlInstrId>
+        <OrgnlEndToEndId>{orig_instr_id}</OrgnlEndToEndId>
+        <OrgnlTxRef>
+          <IntrBkSttlmAmt Ccy="INR">{amount}</IntrBkSttlmAmt>
+          <IntrBkSttlmDt>{cre_dt_tm[:10]}</IntrBkSttlmDt>
+          <CdtrAcct>
+            <Id><Othr><Id>{target_acc}</Id></Othr></Id>
+          </CdtrAcct>
+        </OrgnlTxRef>
+        <CxlRsnInf>
+          <Orgtr><Nm>CrimeCast AI Nodal Interdiction Unit</Nm></Orgtr>
+          <Rsn><Cd>FRAD</Cd></Rsn>
+          <AddtlInf>Interdiction under BNSS 2023 Sec 106 / Sec 94 r/w BSA 2023 Sec 63. Privacy: DPDP Act 2023 Sec 4(d).</AddtlInf>
+        </CxlRsnInf>
+      </TxInf>
+    </Undrlyg>
+  </FIToFIPmntCxlReq>
+</Document>""".strip()
+
     def to_payload(self):
         from django.conf import settings
         complaint = getattr(self.package, 'complaint', None)
         prediction = getattr(self.package, 'prediction', None)
         hops = list(complaint.transaction_hops.all()) if complaint else []
+        xml_val = self.iso20022_payload or self._generate_camt056_xml()
         return {
             "header": {
                 "specification": "I4C-NCRP-FUND-FREEZE-v2.1",
@@ -123,8 +194,9 @@ class BankAlert(models.Model):
                 "timestamp": self.sent_at.isoformat() if self.sent_at else None,
                 "urgency": "IMMEDIATE",
                 "delivery_mode": "GATEWAY_INTEGRATION_READY",
+                "standard": "ISO 20022 camt.056.001.08 / FIToFIPaymentCancellationRequest",
                 "integration_note": (
-                    "Payload formatted per I4C-NCRP-FUND-FREEZE-v2.1. "
+                    "Payload formatted per I4C-NCRP-FUND-FREEZE-v2.1 and ISO 20022 camt.056 standard. "
                     "Production delivery via CFCFRMS gateway requires I4C API onboarding."
                 ),
             },
@@ -135,7 +207,7 @@ class BankAlert(models.Model):
                 "beneficiary_account": getattr(hops[0], 'to_account', 'UNKNOWN_ACC') if hops else "UNKNOWN",
                 "utr_rrn_reference": getattr(hops[0], 'transaction_id', 'UNKNOWN_UTR') if hops else "UNKNOWN",
                 "disputed_amount_inr": float(complaint.fraud_amount) if (complaint and complaint.fraud_amount) else 0.0,
-                "freeze_action": "FREEZE_BENEFICIARY_ACCOUNT_SEC_91_CRPC",
+                "freeze_action": "FREEZE_BENEFICIARY_ACCOUNT_SEC_106_BNSS_2023",
                 "predicted_cashout_zone": prediction.predicted_zone_name if prediction else "Unknown Zone",
                 "eta_window_hours": prediction.eta_hours if prediction else 0
             },
@@ -154,8 +226,12 @@ class BankAlert(models.Model):
             "predicted_cashout_zone": prediction.predicted_zone_name if prediction else "Unknown Zone",
             "eta_window_hours": prediction.eta_hours if prediction else 0,
             "requested_action": "FREEZE_ACCOUNT_TEMPORARY",
-            "legal_basis": "Section 91 CrPC / Cyber Financial Fraud Interdiction"
+            "legal_basis": "BNSS 2023 Section 94 / BNSS 2023 Section 106 / BSA 2023",
+            "privacy_basis": "DPDP Act 2023 - Section 4(d)",
+            "iso20022_xml": xml_val
         }
+
+
 
 class ATMAlert(models.Model):
     STATUS_CHOICES = [
@@ -250,7 +326,8 @@ class LEADispatch(models.Model):
                 "prediction_confidence": getattr(prediction, 'confidence_score', getattr(prediction, 'probability', 0.0)) if prediction else 0.0,
                 "eta_window_hours": prediction.eta_hours if prediction else 0,
                 "dispatch_action": "INTERCEPT_FIELD_CASH_OUT_HOTSPOT",
-                "statutory_basis": "Information Technology Act Sec 66D / BNSS Sec 94"
+                "statutory_basis": "BNSS 2023 Section 106 / BNS 2023 Section 318(4) / IT Act Sec 66D",
+                "privacy_basis": "DPDP Act 2023 - Section 4(d)"
             },
             "target_district": self.target_district,
             "victim_reference": complaint.complaint_number if complaint else "UNKNOWN",
@@ -259,8 +336,10 @@ class LEADispatch(models.Model):
             "confidence_score": getattr(prediction, 'confidence_score', getattr(prediction, 'probability', 0.0)) if prediction else 0.0,
             "eta_window_hours": prediction.eta_hours if prediction else 0,
             "requested_action": "INTERCEPT_CASH_OUT",
-            "legal_basis": "Information Technology Act / BNS Financial Fraud"
+            "legal_basis": "BNSS 2023 Section 106 (Financial Fraud Interdiction) / DPDP Act 2023 Sec 4(d)",
+            "privacy_basis": "DPDP Act 2023 - Section 4(d)"
         }
+
 
 class DispatchAuditLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

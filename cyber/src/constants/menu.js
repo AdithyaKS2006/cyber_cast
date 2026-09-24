@@ -21,6 +21,7 @@ import {
   Globe,
   Radio,
   Smartphone,
+  Terminal,
 } from 'lucide-react';
 
 export const ALL_MENU_GROUPS = [
@@ -35,8 +36,10 @@ export const ALL_MENU_GROUPS = [
     items: [
       { id: 'complaints',        icon: ClipboardList, label: 'All Complaints',  roles: ['Analyst','Validator','Administrator','Operator'] },
       { id: 'complaints/new',    icon: PlusCircle,    label: 'New Complaint',   roles: ['Analyst','Validator','Administrator','Operator'] },
+      { id: 'mule-network',      icon: Network,       label: 'Mule Network',    roles: ['Analyst','Validator','Administrator','Operator'] },
     ],
   },
+
   {
     title: 'PREDICTIONS',
     items: [
@@ -48,11 +51,14 @@ export const ALL_MENU_GROUPS = [
     title: 'OPERATIONS',
     items: [
       { id: 'alerts',          icon: Bell,           label: 'Alert Center',       roles: ['Analyst','Validator','Administrator','Operator'] },
+      { id: 'freeze-ops',      icon: ShieldCheck,    label: 'Freeze Ops',         roles: ['Analyst','Validator','Administrator','Operator'] },
+      { id: 'ingest-alerts',   icon: Zap,            label: 'Ingest Feed',        roles: ['Analyst','Validator','Administrator','Operator'] },
       { id: 'lea-dispatches',  icon: Crosshair,      label: 'Incoming Dispatches',roles: ['Analyst','Validator','Administrator','Operator'] },
       { id: 'gateway-monitor', icon: Radio,          label: 'Gateway Monitor',    roles: ['Analyst','Validator','Administrator','Operator'] },
       { id: 'field-mobile',    icon: Smartphone,     label: 'Field Mobile Mode',  roles: ['Analyst','Validator','Administrator','Operator'] },
       { id: 'analytics',       icon: BarChart2,      label: 'Analytics',          roles: ['Analyst','Validator','Administrator','Operator'] },
       { id: 'ai-advisor',      icon: MessageCircle,  label: 'AI Advisor',         roles: ['Analyst','Validator','Administrator','Operator'] },
+      { id: 'simulator',       icon: Terminal,       label: 'Syndicate Simulator',roles: ['Analyst','Validator','Administrator','Operator'] },
     ],
   },
   {

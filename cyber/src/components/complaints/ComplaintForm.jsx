@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronRight, ChevronLeft, Check, Plus, Trash2, AlertCircle, Loader2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check, Plus, Trash2, AlertCircle, Loader2, Mic, Radio, Sparkles } from 'lucide-react';
 import apiClient from '../../utils/apiClient';
+import VoiceIntakeAssistant from './VoiceIntakeAssistant';
+
 
 // ── Field helpers ─────────────────────────────────────────────────────────
 const InputField = ({ label, name, value, onChange, error, type = 'text', required, placeholder }) => (
@@ -18,7 +20,7 @@ const InputField = ({ label, name, value, onChange, error, type = 'text', requir
                   focus:outline-none transition-colors
                   ${error ? 'border-red-500/60 focus:border-red-500' : 'border-zinc-800 focus:border-orange-500/60'}`}
     />
-    {error && <p className="text-[9px] text-red-400 font-bold">{error}</p>}
+    {error && <p className="text-[9px] text-red-400 font-bold">{Array.isArray(error) ? error.join(', ') : (typeof error === 'object' ? JSON.stringify(error) : String(error))}</p>}
   </div>
 );
 
@@ -38,7 +40,7 @@ const SelectField = ({ label, name, value, onChange, error, options, required })
       <option value="">Select…</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
-    {error && <p className="text-[9px] text-red-400 font-bold">{error}</p>}
+    {error && <p className="text-[9px] text-red-400 font-bold">{Array.isArray(error) ? error.join(', ') : (typeof error === 'object' ? JSON.stringify(error) : String(error))}</p>}
   </div>
 );
 
@@ -109,6 +111,7 @@ const ComplaintForm = ({ navigate, initialData = {} }) => {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+  const [showVoiceIntake, setShowVoiceIntake] = useState(false);
 
   const [form, setForm] = useState({
     victim_name: '', victim_phone: '', victim_email: '',
@@ -118,6 +121,48 @@ const ComplaintForm = ({ navigate, initialData = {} }) => {
     hops: [],
     ...initialData,
   });
+
+  const handleApplyVoiceEntities = (extracted) => {
+    setForm(prev => {
+      const updatedHops = [...prev.hops];
+      if (extracted.suspect_account || extracted.suspect_bank || extracted.suspect_ifsc) {
+        if (updatedHops.length === 0) {
+          updatedHops.push({
+            from_account: 'Victim Primary Account',
+            from_bank: prev.victim_name ? `${prev.victim_name}'s Bank` : 'Victim Primary Bank',
+            from_ifsc: '',
+            to_account: extracted.suspect_account || '',
+            to_bank: extracted.suspect_bank || 'Unknown Bank',
+            to_ifsc: extracted.suspect_ifsc || '',
+            amount: extracted.fraud_amount || prev.fraud_amount || '',
+            timestamp: new Date().toISOString().slice(0, 16),
+            is_mule_flagged: true,
+            latitude: '',
+            longitude: ''
+          });
+        } else {
+          updatedHops[0] = {
+            ...updatedHops[0],
+            to_account: extracted.suspect_account || updatedHops[0].to_account,
+            to_bank: extracted.suspect_bank || updatedHops[0].to_bank,
+            to_ifsc: extracted.suspect_ifsc || updatedHops[0].to_ifsc,
+            amount: extracted.fraud_amount ? String(extracted.fraud_amount) : updatedHops[0].amount,
+          };
+        }
+      }
+
+      return {
+        ...prev,
+        victim_phone: extracted.victim_phone || prev.victim_phone,
+        fraud_amount: extracted.fraud_amount ? String(extracted.fraud_amount) : prev.fraud_amount,
+        fraud_method: extracted.fraud_method || prev.fraud_method || 'UPI',
+        fraud_timestamp: prev.fraud_timestamp || new Date().toISOString().slice(0, 16),
+        narrative_text: extracted.narrative_text || prev.narrative_text,
+        hops: updatedHops,
+      };
+    });
+  };
+
 
   const update = (e) => {
     const { name, value } = e.target;
@@ -177,7 +222,13 @@ const ComplaintForm = ({ navigate, initialData = {} }) => {
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.detail || errJson.message || `Failed to create complaint (${res.status})`);
+        let errMsg = errJson.detail || errJson.message;
+        if (!errMsg && typeof errJson === 'object' && Object.keys(errJson).length > 0) {
+          errMsg = Object.entries(errJson)
+            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+            .join(' | ');
+        }
+        throw new Error(errMsg || `Failed to create complaint (${res.status})`);
       }
       const data = await res.json();
       const complaintId = data.id;
@@ -205,7 +256,8 @@ const ComplaintForm = ({ navigate, initialData = {} }) => {
 
       navigate(`complaints/${complaintId}`);
     } catch (e) {
-      setServerError(e.message || 'Submission failed. Please try again.');
+      const msg = typeof e === 'object' ? (e.message || JSON.stringify(e)) : String(e);
+      setServerError(msg || 'Submission failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -230,16 +282,39 @@ const ComplaintForm = ({ navigate, initialData = {} }) => {
   ].map(s => ({ value: s, label: s }));
 
   return (
-    <div className="min-h-screen p-6 flex items-start justify-center" style={{ background: 'linear-gradient(135deg, #000000, #0a0a0a)' }}>
+    <div className="flex items-start justify-center pb-12">
       <div className="w-full max-w-2xl space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-black text-white uppercase tracking-tight">New Complaint</h1>
-          <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">Register a cybercrime complaint</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-black text-white uppercase tracking-tight">New Complaint</h1>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1">Register a cybercrime complaint (BNSS 2023 / NCRP Standard)</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowVoiceIntake(v => !v)}
+            className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-all shadow-md ${
+              showVoiceIntake
+                ? 'bg-orange-500 text-black border-orange-400'
+                : 'bg-zinc-900/90 text-orange-400 border-orange-500/40 hover:bg-zinc-800'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5 animate-pulse text-red-500" />
+            <span>{showVoiceIntake ? 'Close Voice Intake' : '🎙️ 1930 Live Voice Intake'}</span>
+          </button>
         </div>
+
+        {/* 1930 Voice Assistant Drawer */}
+        {showVoiceIntake && (
+          <VoiceIntakeAssistant
+            onApplyEntities={handleApplyVoiceEntities}
+            onClose={() => setShowVoiceIntake(false)}
+          />
+        )}
 
         {/* Step bar */}
         <Steps current={step} steps={STEPS} />
+
 
         {/* Form card */}
         <div className="rounded-2xl border border-zinc-800/60 p-6 space-y-5"
@@ -284,7 +359,7 @@ const ComplaintForm = ({ navigate, initialData = {} }) => {
                                 focus:outline-none transition-colors resize-none
                                 ${errors.narrative_text ? 'border-red-500/60' : 'border-zinc-800 focus:border-orange-500/60'}`}
                   />
-                  {errors.narrative_text && <p className="text-[9px] text-red-400 font-bold">{errors.narrative_text}</p>}
+                  {errors.narrative_text && <p className="text-[9px] text-red-400 font-bold">{Array.isArray(errors.narrative_text) ? errors.narrative_text.join(', ') : (typeof errors.narrative_text === 'object' ? JSON.stringify(errors.narrative_text) : String(errors.narrative_text))}</p>}
                 </div>
               </div>
             </>
@@ -351,7 +426,9 @@ const ComplaintForm = ({ navigate, initialData = {} }) => {
           {serverError && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-red-900/20 border border-red-500/30">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-              <p className="text-[10px] text-red-400 font-bold">{serverError}</p>
+              <p className="text-[10px] text-red-400 font-bold">
+                {typeof serverError === 'object' ? JSON.stringify(serverError) : String(serverError)}
+              </p>
             </div>
           )}
         </div>
