@@ -91,7 +91,7 @@ const App = () => {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Re-hydrate session from backend API on page load
+  // Re-hydrate session from backend API or demo storage on page load
   useEffect(() => {
     const verifySession = async () => {
       try {
@@ -100,10 +100,28 @@ const App = () => {
           const userData = await res.json();
           setUser(normalizeUser(userData));
         } else {
+          const savedDemoUser = localStorage.getItem('crimecast_demo_user');
+          if (savedDemoUser) {
+            try {
+              setUser(normalizeUser(JSON.parse(savedDemoUser)));
+            } catch {
+              setUser(null);
+            }
+          } else {
+            setUser(null);
+          }
+        }
+      } catch {
+        const savedDemoUser = localStorage.getItem('crimecast_demo_user');
+        if (savedDemoUser) {
+          try {
+            setUser(normalizeUser(JSON.parse(savedDemoUser)));
+          } catch {
+            setUser(null);
+          }
+        } else {
           setUser(null);
         }
-      } catch (err) {
-        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -122,6 +140,7 @@ const App = () => {
 
   const handleLogout = useCallback(() => {
     wsManager.disconnectAll();
+    localStorage.removeItem('crimecast_demo_user');
     setUser(null);
     setActivePage('landing');
     toast("Protocol terminated", { icon: '🚫' });

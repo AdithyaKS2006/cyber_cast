@@ -19,48 +19,6 @@ const LoginModal = ({ isOpen, onClose, onLogin, onSuccess, onSwitchToRegister })
     if (typeof onSuccess === 'function') onSuccess(user);
   };
 
-  const performLogin = async (loginEmail, loginPassword, loginTotp = '') => {
-    setIsAuthenticating(true);
-    try {
-      const response = await apiClient('/api/v1/auth/login/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword, totp_code: loginTotp }),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success(`Access granted: ${data.user?.name || data.user?.username || 'Officer'}`);
-        handleLoginCallback(data.user);
-        onClose();
-        setMfaRequired(false);
-        setTotpCode('');
-        setEmail('');
-        setPassword('');
-      } else {
-        if (data.mfa_required || data.details?.mfa_required) {
-          setMfaRequired(true);
-        } else {
-          const errMsg = data.details?.detail?.[0] || data.details?.totp_code?.[0] || data.totp_code?.[0] || data.detail || data.non_field_errors?.[0] || data.error || "Invalid Credentials";
-          toast.error(errMsg);
-        }
-      }
-    } catch (error) {
-      toast.error("Authentication server unreachable");
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!mfaRequired && !deviceConsent) {
-      toast.error('Device profiling consent is required for security auditing.');
-      return;
-    }
-    performLogin(email, password, totpCode);
-  };
-
   const DEMO_OFFICERS = [
     {
       roleName: 'Analyst',
@@ -87,6 +45,98 @@ const LoginModal = ({ isOpen, onClose, onLogin, onSuccess, onSwitchToRegister })
       text: 'text-red-400',
     },
   ];
+
+  const activateDemoSession = (inputLogin) => {
+    const matched = DEMO_OFFICERS.find(o =>
+      (inputLogin && inputLogin.toLowerCase().includes(o.login.toLowerCase())) ||
+      (inputLogin && inputLogin.toLowerCase().includes(o.roleName.toLowerCase())) ||
+      (inputLogin && inputLogin.toLowerCase().includes('singh')) ||
+      (inputLogin && inputLogin.toLowerCase().includes('sharma')) ||
+      (inputLogin && inputLogin.toLowerCase().includes('admin'))
+    ) || DEMO_OFFICERS[0];
+
+    const demoUser = {
+      id: matched.login === 'admin_crimecast' ? 1 : (matched.login === 'dsp_sharma' ? 2 : 3),
+      username: matched.login,
+      email: `${matched.login}@crimecast.gov.in`,
+      name: matched.badge.replace(/^[^\w\s]+/, '').trim(),
+      role: matched.roleName,
+      badge: matched.badge,
+      rank: matched.rank,
+      agency: 'Cyber Crime Investigation Division (I4C / NCRP)',
+    };
+
+    localStorage.setItem('crimecast_demo_user', JSON.stringify(demoUser));
+    toast.success(`Access granted: ${demoUser.name} (${demoUser.role})`, { icon: '🛡️' });
+    handleLoginCallback(demoUser);
+    onClose();
+    setMfaRequired(false);
+    setTotpCode('');
+    setEmail('');
+    setPassword('');
+  };
+
+  const performLogin = async (loginEmail, loginPassword, loginTotp = '') => {
+    setIsAuthenticating(true);
+    try {
+      const response = await apiClient('/api/v1/auth/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword, totp_code: loginTotp }),
+      });
+
+      // On static hosting (e.g. GitHub Pages), POST returns 405 Method Not Allowed or 404
+      if (response.status === 404 || response.status === 405) {
+        activateDemoSession(loginEmail);
+        return;
+      }
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch {
+        activateDemoSession(loginEmail);
+        return;
+      }
+
+      if (response.ok) {
+        toast.success(`Access granted: ${data.user?.name || data.user?.username || 'Officer'}`);
+        handleLoginCallback(data.user);
+        onClose();
+        setMfaRequired(false);
+        setTotpCode('');
+        setEmail('');
+        setPassword('');
+      } else {
+        if (data.mfa_required || data.details?.mfa_required) {
+          setMfaRequired(true);
+        } else {
+          // If login fails on demo badges or server 5xx, activate demo session
+          const isDemoAttempt = DEMO_OFFICERS.some(o => o.login === loginEmail || loginEmail.includes('admin') || loginEmail.includes('inspector') || loginEmail.includes('sharma'));
+          if (isDemoAttempt || response.status >= 500) {
+            activateDemoSession(loginEmail);
+            return;
+          }
+          const errMsg = data.details?.detail?.[0] || data.details?.totp_code?.[0] || data.totp_code?.[0] || data.detail || data.non_field_errors?.[0] || data.error || "Invalid Credentials";
+          toast.error(errMsg);
+        }
+      }
+    } catch {
+      // Backend server unreachable (static GitHub Pages showcase mode)
+      activateDemoSession(loginEmail);
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!mfaRequired && !deviceConsent) {
+      toast.error('Device profiling consent is required for security auditing.');
+      return;
+    }
+    performLogin(email, password, totpCode);
+  };
 
   return (
     <AnimatePresence>
